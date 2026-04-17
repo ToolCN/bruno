@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920">
+<title>Centro de Control — Playtime Co.</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Nunito:wght@400;700;900&display=swap');
+:root {
+  --bg:#04080f; --panel:#080f1a; --border:#0d2137;
+  --glow:#00aaff; --gold:#d4af37; --red:#c0392b; --green:#00ff88;
+  --text:#c8e8ff; --muted:#3a5a7a;
+  --fhud:'Orbitron',sans-serif; --fmono:'Share Tech Mono',monospace; --fbody:'Nunito',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--fbody);width:100vw;height:100vh;overflow:hidden;cursor:none;}
+
+/* CURSOR */
+#cur{width:28px;height:28px;border:2.5px solid var(--glow);border-radius:50%;position:fixed;pointer-events:none;z-index:99999;transform:translate(-50%,-50%);box-shadow:0 0 10px var(--glow);transition:transform .1s;}
+#cur::after{content:'';width:5px;height:5px;background:var(--glow);border-radius:50%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);}
+#cur.c{transform:translate(-50%,-50%) scale(.7);border-color:var(--gold);}
+
+/* SCANLINES */
+.sl{position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px);pointer-events:none;z-index:900;}
+
+/* SCREENS */
+.scr{display:none;width:100vw;height:100vh;position:absolute;top:0;left:0;}
+.scr.on{display:flex;}
+
+/* BACK BUTTON */
+.btn-back{position:fixed;top:1rem;left:1rem;z-index:800;padding:.6rem 1.2rem;background:rgba(8,15,26,.9);border:1px solid var(--border);border-radius:4px;color:var(--muted);font-family:var(--fmono);font-size:.8rem;cursor:pointer;letter-spacing:2px;transition:all .2s;}
+.btn-back:hover{border-color:var(--glow);color:var(--glow);box-shadow:0 0 15px rgba(0,170,255,.3);}
+
+/* TOAST */
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--panel);border:1px solid var(--gold);color:var(--gold);padding:.6rem 1.8rem;border-radius:30px;font-family:var(--fhud);font-size:.85rem;letter-spacing:1px;z-index:9999;transition:transform .3s;white-space:nowrap;}
+.toast.on{transform:translateX(-50%) translateY(0);}
+
+/* ===================== LOGIN ===================== */
+#s-login{background:radial-gradient(ellipse at 50% 30%,#0a1520,#020508);align-items:center;justify-content:center;flex-direction:column;}
+.lb{background:rgba(8,15,26,.95);border:1px solid var(--glow);border-radius:4px;padding:2.5rem 3.5rem;text-align:center;box-shadow:0 0 60px rgba(0,170,255,.2);max-width:560px;width:90%;position:relative;}
+.lb::before{content:'';position:absolute;top:-1px;left:20%;right:20%;height:1px;background:linear-gradient(90deg,transparent,var(--glow),transparent);}
+.lb-co{font-family:var(--fhud);font-size:.8rem;color:var(--muted);letter-spacing:5px;margin-bottom:.75rem;}
+.lb-title{font-family:var(--fhud);font-size:1.8rem;color:var(--glow);text-shadow:0 0 30px var(--glow);margin-bottom:.3rem;line-height:1.2;}
+.lb-sub{font-family:var(--fmono);font-size:.8rem;color:var(--red);letter-spacing:3px;margin-bottom:2rem;animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.pin-row{display:flex;justify-content:center;gap:.75rem;margin-bottom:1.5rem;}
+.pin-d{width:65px;height:75px;background:#020508;border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:var(--fhud);font-size:2.2rem;color:var(--glow);text-shadow:0 0 15px var(--glow);transition:all .2s;}
+.pin-d.f{border-color:var(--glow);box-shadow:0 0 12px rgba(0,170,255,.3);}
+.numpad{display:grid;grid-template-columns:repeat(3,90px);gap:.65rem;justify-content:center;margin-bottom:1.2rem;}
+.np{height:65px;background:rgba(0,170,255,.05);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--fhud);font-size:1.3rem;cursor:pointer;transition:all .15s;}
+.np:hover{background:rgba(0,170,255,.15);border-color:var(--glow);color:var(--glow);box-shadow:0 0 12px rgba(0,170,255,.2);}
+.np:active{transform:scale(.94);}
+.np.del{color:var(--red);font-size:.9rem;}
+.np.ent{color:var(--green);font-size:.8rem;letter-spacing:1px;}
+.lb-err{font-family:var(--fmono);color:var(--red);font-size:.8rem;min-height:1.2em;letter-spacing:2px;}
+
+/* ===================== MAP ===================== */
+#s-map{flex-direction:column;background:var(--bg);}
+.map-bar{height:58px;background:rgba(8,15,26,.98);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 2rem;flex-shrink:0;}
+.map-bar-title{font-family:var(--fhud);font-size:.95rem;color:var(--glow);letter-spacing:3px;}
+.pcaps{display:flex;gap:.4rem;align-items:center;}
+.pcap{width:36px;height:10px;border-radius:2px;border:1px solid var(--border);background:var(--border);transition:all .5s;}
+.pcap.done{background:var(--green);border-color:var(--green);box-shadow:0 0 8px var(--green);}
+.pcap.act{background:var(--glow);border-color:var(--glow);box-shadow:0 0 8px var(--glow);animation:pcap-pulse 1s infinite;}
+@keyframes pcap-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.map-hint{font-family:var(--fmono);font-size:.7rem;color:var(--muted);letter-spacing:1px;}
+
+/* FACTORY FLOOR */
+.factory-wrap{flex:1;position:relative;overflow:hidden;}
+.factory-bg{position:absolute;inset:0;background-image:url('https://static.wikia.nocookie.net/poppy-playtime-hispano/images/e/ea/F%C3%A1brica_de_Playtime_Co.png/revision/latest?cb=20220701193439&path-prefix=es');background-size:cover;background-position:center;filter:brightness(.35) saturate(.8);}
+.factory-grid{position:absolute;inset:0;background:linear-gradient(rgba(0,170,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,170,255,.04) 1px,transparent 1px);background-size:60px 60px;pointer-events:none;}
+
+/* ZONE CARDS - layout escalonado */
+.zcard{position:absolute;cursor:pointer;transition:all .3s;}
+.zcard-inner{width:340px;border-radius:8px;overflow:hidden;border:1px solid #111;background:#000;position:relative;transition:all .3s;}
+.zcard.unlocked .zcard-inner{border-color:var(--zc);box-shadow:0 0 20px rgba(var(--zr),.35);}
+.zcard.unlocked:hover .zcard-inner{box-shadow:0 0 45px rgba(var(--zr),.7);transform:translateY(-4px);}
+.zcard.done .zcard-inner{border-color:#1a3a1a;opacity:.55;}
+.zcard-img{width:340px;height:210px;object-fit:cover;object-position:center center;display:block;filter:brightness(.8);transition:filter .3s;}
+.zcard.unlocked:hover .zcard-img{filter:brightness(1.1);}
+.zcard-bar{padding:.5rem .75rem;background:rgba(0,0,0,.85);border-top:1px solid #111;}
+.zcard-name{font-family:var(--fhud);font-size:.8rem;letter-spacing:1px;}
+.zcard-area{font-family:var(--fmono);font-size:.6rem;color:var(--muted);margin-top:1px;}
+.zcard-lock{position:absolute;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.3rem;z-index:6;}
+.zcard-lock-icon{font-size:2rem;}
+.zcard-lock-txt{font-family:var(--fmono);font-size:.6rem;color:#333;letter-spacing:2px;}
+.zcard-done-badge{position:absolute;top:6px;right:6px;background:var(--green);color:#000;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:900;z-index:7;}
+
+/* Dark reveal mask */
+.zmask{position:absolute;inset:0;background:#000;z-index:5;pointer-events:none;}
+.zmask.revealed{display:none;}
+.zmask.revealing{animation:reveal 2.5s ease forwards;}
+@keyframes reveal{
+  0%{opacity:1;background:#000;}
+  15%{opacity:.95;background:radial-gradient(circle at 50% 50%,#001a00,#000);}
+  40%{opacity:.7;background:radial-gradient(circle at 50% 50%,#001a20,#000 80%);}
+  70%{opacity:.3;}
+  100%{opacity:0;}
+}
+.lightning{position:absolute;inset:0;pointer-events:none;z-index:10;opacity:0;}
+.lightning.flash{animation:lflash .6s ease forwards;}
+@keyframes lflash{0%{opacity:0}20%{opacity:1;background:rgba(0,200,255,.3)}40%{opacity:.5}60%{opacity:.8;background:rgba(0,150,255,.2)}80%{opacity:.2}100%{opacity:0}}
+
+/* Flechas animadas SVG */
+.map-arrow{position:absolute;pointer-events:none;z-index:20;opacity:0;transition:opacity .5s;}
+.map-arrow.visible{opacity:1;}
+.map-arrow svg{overflow:visible;}
+.map-arrow path{stroke-dasharray:12 6;stroke-dashoffset:0;animation:arrow-dash 1s linear infinite;}
+.map-arrow polygon{animation:arrow-blink .8s ease-in-out infinite;}
+@keyframes arrow-dash{to{stroke-dashoffset:-36;}}
+@keyframes arrow-blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Final zone */
+.zfinal{position:absolute;cursor:pointer;}
+.zfinal .zcard-inner{width:420px;}
+.zfinal .zcard-img{width:420px;height:260px;}
+
+/* ===================== ZONE DETAIL ===================== */
+#s-zone{background:rgba(4,8,15,.97);flex-direction:row;}
+.z-sidebar{width:360px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+.z-sb-img{width:100%;height:300px;object-fit:cover;object-position:top;filter:brightness(.9);}
+.z-sb-info{padding:1.25rem;flex:1;}
+.z-sb-name{font-family:var(--fhud);font-size:1.4rem;margin-bottom:.25rem;}
+.z-sb-area{font-family:var(--fmono);font-size:.7rem;color:var(--muted);letter-spacing:2px;margin-bottom:.75rem;}
+.z-sb-desc{font-size:.85rem;color:#7a9ab8;line-height:1.6;}
+
+/* Steps */
+.steps-wrap{flex:1;padding:2rem;display:flex;flex-direction:column;gap:1.25rem;overflow-y:auto;padding-top:4rem;}
+.step{background:var(--panel);border:1px solid var(--border);border-radius:6px;overflow:hidden;transition:all .6s cubic-bezier(.34,1.56,.64,1);max-height:0;opacity:0;transform:translateY(16px);}
+.step.vis{max-height:500px;opacity:1;transform:translateY(0);}
+.step.col{max-height:58px;opacity:.45;overflow:hidden;}
+.step-hd{padding:.9rem 1.25rem;display:flex;align-items:center;gap:.75rem;border-bottom:1px solid var(--border);}
+.step-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--fhud);font-size:.85rem;flex-shrink:0;border:2px solid currentColor;}
+.step-ttl{font-family:var(--fhud);font-size:.9rem;letter-spacing:1px;flex:1;}
+.step-ck{font-size:1.1rem;display:none;}
+.step.done .step-ck{display:block;}
+.step-bd{padding:1.25rem;}
+.step-desc{font-size:.9rem;color:#7a9ab8;line-height:1.6;margin-bottom:1.25rem;}
+.btn-main{padding:.85rem 1.75rem;border:none;border-radius:4px;font-family:var(--fhud);font-size:.9rem;letter-spacing:2px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:.6rem;}
+.btn-main:hover{filter:brightness(1.2);transform:translateY(-1px);}
+.btn-main:active{transform:scale(.97);}
+.btn-main:disabled{opacity:.3;cursor:not-allowed;}
+.btn-v{background:linear-gradient(135deg,#1a1a4a,#2d2d8a);color:#aaaaff;box-shadow:0 0 18px rgba(100,100,255,.2);}
+.btn-c{background:linear-gradient(135deg,#0a2a0a,#1a4a1a);color:var(--green);box-shadow:0 0 18px rgba(0,255,136,.15);}
+.btn-g{background:linear-gradient(135deg,#2a0a2a,#4a1a4a);color:#dd88ff;box-shadow:0 0 18px rgba(200,100,255,.2);}
+.code-row{display:flex;gap:.75rem;align-items:center;margin-top:.5rem;}
+.code-f{background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--green);font-family:var(--fhud);font-size:1.8rem;text-align:center;padding:.4rem;width:130px;letter-spacing:8px;transition:border-color .2s;}
+.code-f:focus{outline:none;border-color:var(--green);box-shadow:0 0 12px rgba(0,255,136,.2);}
+.btn-cv{padding:.65rem 1.25rem;background:var(--green);border:none;border-radius:4px;color:#000;font-family:var(--fhud);font-size:.85rem;cursor:pointer;letter-spacing:2px;transition:all .2s;}
+.btn-cv:hover{box-shadow:0 0 18px rgba(0,255,136,.4);}
+.code-msg{font-family:var(--fmono);font-size:.8rem;margin-top:.4rem;min-height:1.2em;}
+.code-msg.err{color:var(--red);} .code-msg.ok{color:var(--green);}
+
+/* ===================== VIDEO ===================== */
+#s-video{background:#000;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem;padding:2rem;}
+.vid-info-title{font-family:var(--fhud);font-size:1.1rem;color:var(--gold);letter-spacing:2px;text-align:center;margin-bottom:.3rem;}
+.vid-info-sub{font-family:var(--fmono);font-size:.75rem;color:var(--muted);text-align:center;}
+.vid-frame{width:100%;max-width:1100px;aspect-ratio:16/9;border:1px solid var(--border);border-radius:4px;overflow:hidden;box-shadow:0 0 40px rgba(0,0,0,.8);}
+.vid-frame iframe{width:100%;height:100%;border:none;}
+.btn-vdone{padding:.9rem 2.5rem;background:linear-gradient(135deg,var(--red),#8b0000);border:none;border-radius:4px;color:white;font-family:var(--fhud);font-size:.95rem;letter-spacing:2px;cursor:pointer;box-shadow:0 0 22px rgba(192,57,43,.4);transition:all .2s;}
+.btn-vdone:hover{box-shadow:0 0 35px rgba(192,57,43,.6);}
+
+/* ===================== GAME ===================== */
+#s-game{flex-direction:column;background:var(--bg);width:100vw;height:100vh;}
+.g-bar{height:56px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 2rem;gap:2rem;flex-shrink:0;}
+.g-bar-name{font-family:var(--fhud);font-size:1rem;letter-spacing:2px;}
+.g-bar-lives{font-size:1.2rem;margin-left:auto;}
+.g-wrap{flex:1;position:relative;overflow:hidden;width:100%;height:100%;}
+/* overlays siempre encima */
+.g-ov{position:absolute;inset:0;background:rgba(4,8,15,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;z-index:200;padding:2.5rem;text-align:center;}
+/* G1 Huggy - ocupa TODO el g-wrap */
+.g1-field{position:absolute;inset:0;background:#030810;overflow:hidden;}
+.h-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.4;pointer-events:none;}
+.h-blob{position:absolute;width:200px;height:200px;border-radius:12px;cursor:pointer;background:rgba(5,20,40,.9);border:2px solid rgba(41,128,185,.7);box-shadow:0 0 30px rgba(41,128,185,.8);user-select:none;transition:transform .08s;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.h-blob:hover{border-color:#2980b9;box-shadow:0 0 50px rgba(41,128,185,1);}
+.h-blob:active{transform:scale(.88)!important;}
+.h-blob img{width:100%;height:100%;object-fit:contain;pointer-events:none;padding:6px;}
+.g1-hud{position:absolute;top:1rem;left:50%;transform:translateX(-50%);display:flex;gap:2rem;background:rgba(4,8,15,.85);border:1px solid var(--border);border-radius:30px;padding:.5rem 2rem;z-index:10;}
+
+/* Game overlays */
+.g-ov-icon{font-size:3.5rem;}
+.g-ov-title{font-family:var(--fhud);font-size:2.2rem;color:var(--gold);}
+.g-ov-txt{font-size:1rem;color:#7a9ab8;max-width:580px;line-height:1.6;}
+.g-ov-code{font-family:var(--fhud);font-size:3.5rem;color:var(--red);letter-spacing:12px;text-shadow:0 0 25px rgba(192,57,43,.7);}
+.g-ov-code-lbl{font-family:var(--fmono);font-size:.75rem;color:var(--muted);letter-spacing:3px;}
+.btn-gov{padding:.9rem 2rem;border:none;border-radius:4px;font-family:var(--fhud);font-size:.9rem;letter-spacing:2px;cursor:pointer;transition:all .2s;margin:.2rem;}
+.btn-retry{background:var(--red);color:white;}
+.btn-cont{background:var(--gold);color:#000;}
+
+/* Game areas */
+.g-area{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:1rem;}
+.hud-bar{display:flex;gap:2rem;align-items:center;}
+.hud-lbl{font-family:var(--fmono);font-size:.65rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+.hud-val{font-family:var(--fhud);font-size:1.5rem;color:var(--gold);}
+
+/* G2 Wires */
+.g2-field{width:min(680px,90vw);height:min(460px,65vh);background:#0a0018;border:1px solid #e91e8c;border-radius:8px;position:relative;overflow:hidden;box-shadow:0 0 25px rgba(233,30,140,.2);}
+.wire{position:absolute;width:22px;border-radius:11px;cursor:pointer;transition:all .2s;}
+.wire:hover{filter:brightness(1.4);}
+.wire.cut{opacity:.1;pointer-events:none;transform:scaleY(.3);}
+.wire.wrong{filter:brightness(.2);}
+.mommy-defeat-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .4s;pointer-events:none;}
+.mommy-defeat-img.show{opacity:.6;}
+
+/* G3 Maze */
+.g3-maze-wrap{position:relative;}
+#g3-maze{background:#0a0018;border:1px solid #8e44ad;border-radius:6px;position:relative;overflow:hidden;box-shadow:0 0 25px rgba(142,68,173,.2);}
+.mw{position:absolute;background:#8e44ad;opacity:.75;}
+.mp-el{position:absolute;z-index:10;border-radius:50%;overflow:hidden;transition:all .12s;}
+.mp-el img{width:100%;height:100%;object-fit:cover;}
+.me-el{position:absolute;z-index:9;border-radius:50%;overflow:hidden;transition:all .4s;}
+.me-el img{width:100%;height:100%;object-fit:cover;}
+.mx-el{position:absolute;z-index:5;display:flex;align-items:center;justify-content:center;font-size:1.8rem;}
+.dpad{display:grid;grid-template-columns:repeat(3,65px);grid-template-rows:repeat(2,65px);gap:6px;margin-top:.75rem;}
+.db{background:rgba(142,68,173,.1);border:1px solid #8e44ad;border-radius:6px;color:#8e44ad;font-size:1.5rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.db:hover{background:rgba(142,68,173,.3);color:white;}
+.db:active{transform:scale(.9);}
+.de{background:transparent;border:none;pointer-events:none;}
+
+/* G4 Puzzle */
+.g4-field{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:.75rem;background:#0a0500;border:1px solid #e67e22;border-radius:8px;box-shadow:0 0 25px rgba(230,126,34,.2);}
+.pz{aspect-ratio:1;background:#150a00;border:2px solid #2a1500;border-radius:6px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative;}
+.pz img{width:100%;height:100%;object-fit:cover;pointer-events:none;transition:all .2s;}
+.pz:hover{border-color:#e67e22;}
+.pz.sel{border-color:var(--gold);box-shadow:0 0 12px rgba(212,175,55,.4);}
+.pz.ok{border-color:var(--green);box-shadow:0 0 8px rgba(0,255,136,.3);}
+
+/* G5 Terminal */
+.g5-field{width:min(680px,90vw);background:#000d00;border:1px solid #27ae60;border-radius:8px;padding:1.75rem;font-family:var(--fmono);box-shadow:0 0 25px rgba(39,174,96,.2);max-height:75vh;overflow-y:auto;}
+.g5-doc-img{width:100%;max-height:200px;object-fit:cover;border-radius:4px;margin-bottom:1rem;opacity:.7;}
+.tl{color:#00ff41;font-size:.85rem;line-height:1.7;margin-bottom:.2rem;}
+.tl.dim{color:#004a10;}
+.tl.q{font-size:1rem;color:#00dd38;margin:1rem 0 .5rem;font-weight:700;}
+.t-opts{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.5rem;}
+.t-btn{background:transparent;border:1px solid #005a1a;color:#00ff41;padding:.55rem .9rem;border-radius:3px;font-family:var(--fmono);font-size:.85rem;text-align:left;cursor:pointer;transition:all .15s;letter-spacing:1px;}
+.t-btn:hover{background:#001a00;border-color:#00ff41;box-shadow:0 0 8px rgba(0,255,65,.2);}
+.t-btn.ok{background:#001a00;border-color:#00ff41;}
+.t-btn.bad{border-color:var(--red);color:var(--red);}
+.t-dots{display:flex;gap:7px;margin:.75rem 0;}
+.t-dot{width:16px;height:16px;border:1px solid #003a10;border-radius:50%;}
+.t-dot.done{background:#003a10;border-color:#00aa2a;}
+.t-dot.cur{background:#00ff41;border-color:#00ff41;box-shadow:0 0 7px #00ff41;}
+
+/* G6 Simon */
+.g6-field{width:min(600px,90vw);background:#0d0000;border:1px solid var(--red);border-radius:8px;padding:1.75rem;text-align:center;box-shadow:0 0 25px rgba(192,57,43,.2);}
+.g6-h{font-family:var(--fhud);font-size:1.1rem;color:var(--red);letter-spacing:2px;margin-bottom:.75rem;}
+.g6-seq-display{min-height:80px;display:flex;align-items:center;justify-content:center;gap:.75rem;margin-bottom:1rem;background:#050000;border-radius:6px;padding:.75rem;border:1px solid #2a0000;flex-wrap:wrap;}
+.g6-sym-show{font-size:2.2rem;animation:sym-pop .3s ease;}
+@keyframes sym-pop{0%{transform:scale(0)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+.g6-input-row{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;}
+.g6-slot{width:60px;height:60px;background:#050000;border:2px dashed #2a0000;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;transition:all .2s;}
+.g6-slot.f{border-style:solid;border-color:var(--red);box-shadow:0 0 8px rgba(192,57,43,.3);}
+.g6-btns-grid{display:flex;justify-content:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;}
+.g6-sym-btn{width:65px;height:65px;background:#0d0000;border:1px solid #2a0000;border-radius:6px;font-size:2rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;}
+.g6-sym-btn:hover{border-color:var(--red);box-shadow:0 0 12px rgba(192,57,43,.3);transform:scale(1.08);}
+.g6-sym-btn:active{transform:scale(.92);}
+.g6-actions{display:flex;justify-content:center;gap:.75rem;}
+.btn-g6c{padding:.6rem 1.2rem;background:transparent;border:1px solid #333;color:#555;border-radius:4px;font-family:var(--fhud);font-size:.75rem;cursor:pointer;letter-spacing:1px;}
+.btn-g6c:hover{border-color:#666;color:#888;}
+.g6-phase-lbl{font-family:var(--fmono);font-size:.75rem;color:var(--muted);margin-bottom:.5rem;letter-spacing:2px;}
+.g6-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.15;pointer-events:none;}
+
+/* FINAL */
+#s-final{background:radial-gradient(ellipse at 50% 40%,#0a0a00,#020203);align-items:center;justify-content:center;flex-direction:column;gap:1.25rem;text-align:center;}
+.fin-eye{font-size:6rem;animation:eye-f 3s infinite;filter:drop-shadow(0 0 25px red);}
+@keyframes eye-f{0%,100%{opacity:1}30%{opacity:.1}50%{opacity:.9}70%{opacity:.2}80%{opacity:1}}
+.fin-title{font-family:var(--fhud);font-size:2.5rem;color:var(--gold);text-shadow:0 0 35px var(--gold);}
+.fin-msg{font-size:1.05rem;color:#6a8a9a;max-width:680px;line-height:1.7;}
+.fin-cont{font-family:var(--fhud);font-size:1.2rem;color:var(--red);letter-spacing:4px;animation:blink 2s infinite;margin-top:.5rem;}
+</style>
+</head>
+<body>
+<div class="sl"></div>
+<div id="cur"></div>
+
+<!-- LOGIN -->
+<div id="s-login" class="scr on">
+  <div class="lb">
+    <div class="lb-co">Playtime Co. — Centro de Control</div>
+    <div class="lb-title">ACCESO<br>RESTRINGIDO</div>
+    <div class="lb-sub">⚠ INTRODUCE EL CÓDIGO DE ACCESO ⚠</div>
+    <div class="pin-row">
+      <div class="pin-d" id="pd0">_</div><div class="pin-d" id="pd1">_</div>
+      <div class="pin-d" id="pd2">_</div><div class="pin-d" id="pd3">_</div>
+    </div>
+    <div class="numpad">
+      <button class="np" onclick="pp('1')">1</button><button class="np" onclick="pp('2')">2</button><button class="np" onclick="pp('3')">3</button>
+      <button class="np" onclick="pp('4')">4</button><button class="np" onclick="pp('5')">5</button><button class="np" onclick="pp('6')">6</button>
+      <button class="np" onclick="pp('7')">7</button><button class="np" onclick="pp('8')">8</button><button class="np" onclick="pp('9')">9</button>
+      <button class="np del" onclick="pdel()">⌫</button><button class="np" onclick="pp('0')">0</button><button class="np ent" onclick="penter()">OK</button>
+    </div>
+    <div class="lb-err" id="lb-err"></div>
+  </div>
+</div>
+
+<!-- MAP -->
+<div id="s-map" class="scr">
+  <div class="map-bar">
+    <div class="map-bar-title">🏭 PLANO — PLAYTIME CO.</div>
+    <div class="pcaps" id="pcaps"></div>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <button onclick="debugNext()" style="padding:.3rem .8rem;background:rgba(255,100,0,.15);border:1px solid #ff6400;border-radius:4px;color:#ff6400;font-family:var(--fmono);font-size:.65rem;cursor:pointer;letter-spacing:1px;" title="Solo para pruebas">⚡ DESBLOQUEAR SIGUIENTE</button>
+      <div class="map-hint" id="map-hint">Selecciona zona activa</div>
+    </div>
+  </div>
+  <div class="factory-wrap">
+    <div class="factory-bg"></div>
+    <div class="factory-grid"></div>
+    <div id="factory-floor" style="position:absolute;inset:0;"></div>
+  </div>
+</div>
+
+<!-- ZONE -->
+<div id="s-zone" class="scr">
+  <button class="btn-back" onclick="goMap()">← MAPA</button>
+  <div class="z-sidebar">
+    <img id="zs-img" src="" alt="" class="z-sb-img">
+    <div class="z-sb-info">
+      <div class="z-sb-name" id="zs-name"></div>
+      <div class="z-sb-area" id="zs-area"></div>
+      <div class="z-sb-desc" id="zs-desc"></div>
+    </div>
+  </div>
+  <div class="steps-wrap" id="steps-wrap"></div>
+</div>
+
+<!-- VIDEO -->
+<div id="s-video" class="scr">
+  <button class="btn-back" onclick="goMap()">← MAPA</button>
+  <div class="vid-info-title" id="vid-title"></div>
+  <div class="vid-info-sub" id="vid-sub"></div>
+  <div class="vid-frame"><iframe id="vid-if" src="" allowfullscreen allow="autoplay;encrypted-media"></iframe></div>
+  <button class="btn-vdone" onclick="onVidDone()">✓ LISTO — CONTINUAR</button>
+</div>
+
+<!-- GAME -->
+<div id="s-game" class="scr">
+  <button class="btn-back" onclick="goMap()">← MAPA</button>
+  <div class="g-bar">
+    <div class="g-bar-name" id="gb-name">JUEGO</div>
+    <div class="g-bar-lives" id="gb-lives">❤️❤️❤️</div>
+  </div>
+  <div class="g-wrap" id="g-wrap">
+    <!-- overlays z-index:200 -->
+    <div class="g-ov" id="g-intro" style="z-index:200;">
+      <div class="g-ov-icon" id="gi-icon">👾</div>
+      <div class="g-ov-title" id="gi-title">¿Listo?</div>
+      <div class="g-ov-txt" id="gi-txt">Instrucciones</div>
+      <button class="btn-gov btn-cont" onclick="startGame()">⚡ ¡JUGAR!</button>
+    </div>
+    <div class="g-ov" id="g-lose" style="display:none;z-index:200;">
+      <div class="g-ov-icon">💀</div>
+      <div class="g-ov-title" style="color:var(--red)">MISIÓN FALLIDA</div>
+      <div class="g-ov-txt" id="gl-txt"></div>
+      <button class="btn-gov btn-retry" onclick="retryGame()">🔄 REINTENTAR</button>
+    </div>
+    <div class="g-ov" id="g-win" style="display:none;z-index:200;">
+      <div class="g-ov-icon">🏆</div>
+      <div class="g-ov-title">¡GUARDIÁN DERROTADO!</div>
+      <div class="g-ov-txt" id="gw-txt"></div>
+      <div class="g-ov-code" id="gw-code">---</div>
+      <div class="g-ov-code-lbl">CÓDIGO DE AVANCE — ANÓTALO</div>
+      <button class="btn-gov btn-cont" onclick="onWin()">▶ CONTINUAR</button>
+    </div>
+    <!-- game canvas injected here at z-index:1 -->
+  </div>
+</div>
+
+<!-- FINAL -->
+<div id="s-final" class="scr">
+  <button class="btn-back" onclick="goMap()">← MAPA</button>
+  <div class="fin-eye">👁️</div>
+  <div class="fin-title">SPRING TRAP... SELLADO.</div>
+  <div class="fin-msg">Los anillos han vuelto a su legítimo Guardián.<br>La fábrica está en silencio. La Alianza de las Sombras... destruida.<br><br>Capitán Bruno ha demostrado ser el héroe más grande que jamás existió.</div>
+  <div class="fin-cont">...CONTINUARÁ</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== CURSOR =====
+const cur=document.getElementById('cur');
+document.addEventListener('mousemove',e=>{cur.style.left=e.clientX+'px';cur.style.top=e.clientY+'px';});
+document.addEventListener('mousedown',()=>cur.classList.add('c'));
+document.addEventListener('mouseup',()=>cur.classList.remove('c'));
+
+// ===== HELPERS =====
+function show(id){document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));document.getElementById(id).classList.add('on');}
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),d);}
+let TT=[];
+function si(f,ms){const id=setInterval(f,ms);TT.push(id);return id;}
+function st(f,ms){const id=setTimeout(f,ms);TT.push(id);return id;}
+function clrT(){TT.forEach(id=>{clearInterval(id);clearTimeout(id);});TT=[];}
+
+// ===== STATE =====
+const S={unlocked:[0],completed:[],curZone:0,vidCtx:'',curGame:0,lives:3};
+
+// ===== ZONES =====
+const Z=[
+  {id:0,name:'Huggy Wuggy',area:'SECTOR A — GARAGE',color:'#2980b9',rgb:'41,128,185',
+   code:'347',gc:'347',
+   img:'https://es.gamewallpapers.com/download.php?img=wallpaper_poppy_playtime_01_1920x1080.jpg',
+   desc:'El gigante azul guarda el primer fragmento del poder de Spring Trap entre las cajas del garage.',
+   vi:'https://www.youtube.com/embed/dQw4w9WgXcQ',vd:'https://www.youtube.com/embed/dQw4w9WgXcQ',
+   gi:{icon:'🔵',title:'¡ATRAPA A HUGGY!',txt:'Huggy aparece y desaparece. ¡Tócalo 10 veces antes de que se acabe el tiempo! Tienes 30 segundos.'},
+   pos:{left:'40px',top:'75px'}},
+  {id:1,name:'Mommy Long Legs',area:'SECTOR B — ÁREA DE LAVADO',color:'#e91e8c',rgb:'233,30,140',
+   code:'582',gc:'582',
+   img:'https://static0.srcdn.com/wordpress/wp-content/uploads/2022/12/project-playtime-mommy-long-legs-cover.jpg',
+   desc:'Sus hilos infinitos cubren cada rincón. Corta solo los correctos o activarás sus trampas.',
+   vi:'https://www.youtube.com/embed/dQw4w9WgXcQ',vd:'https://www.youtube.com/embed/dQw4w9WgXcQ',
+   gi:{icon:'🕸️',title:'CORTA LOS HILOS',txt:'Corta solo los hilos ROSAS de Mommy. Los demás son trampas. ¡3 errores = pierdes!'},
+   pos:{left:'40px',top:'400px'}},
+  {id:2,name:'CatNap',area:'SECTOR C — SALA',color:'#8e44ad',rgb:'142,68,173',
+   code:'916',gc:'916',
+   img:'https://oyster.ignimgs.com/mediawiki/apis.ign.com/poppy-playtime/d/d4/Screenshot_%28275%29.png',
+   desc:'El gas rojo llena la sala. Sus pesadillas son reales. Encuentra la salida sin que te atrape.',
+   vi:'https://www.youtube.com/embed/dQw4w9WgXcQ',vd:'https://www.youtube.com/embed/dQw4w9WgXcQ',
+   gi:{icon:'😾',title:'LABERINTO DE CATNAP',txt:'Llega a la salida ⭐ sin tocar las sombras. Usa las flechas. CatNap también se mueve...'},
+   pos:{left:'520px',top:'160px'}},
+  {id:3,name:'Doey (corrompido)',area:'SECTOR D — RECÁMARA 2',color:'#e67e22',rgb:'230,126,34',
+   code:'263',gc:'263',
+   img:'https://i.ytimg.com/vi/C36hCyNP4n0/hq720.jpg',
+   desc:'Spring Trap corrompió su mente. Sus fragmentos están dispersos. Reconstruye la imagen.',
+   vi:'https://www.youtube.com/embed/dQw4w9WgXcQ',vd:'https://www.youtube.com/embed/dQw4w9WgXcQ',
+   gi:{icon:'🧩',title:'RECONSTRUYE A DOEY',txt:'Las piezas están revueltas. Toca dos piezas para intercambiarlas.'},
+   pos:{left:'520px',top:'480px'}},
+  {id:4,name:'Dr. Harley Sawyer',area:'RECÁMARA PRINCIPAL',color:'#27ae60',rgb:'39,174,96',
+   code:'748',gc:'748',
+   img:'https://preview.redd.it/the-doctor-harley-sawyer-from-poppy-playtime-chapter-4-v0-zk1vobuohxge1.jpg?width=640&crop=smart&auto=webp&s=7f3efd90ac59be160ea5e060714c801913f2e3ea',
+   desc:'El aliado principal de Spring Trap. No usa fuerza — usa inteligencia. El más peligroso.',
+   vi:'https://www.youtube.com/embed/dQw4w9WgXcQ',vd:'https://www.youtube.com/embed/dQw4w9WgXcQ',
+   gi:{icon:'💻',title:'HACKEA LA TERMINAL',txt:'Responde 5 preguntas para desactivar el sistema de seguridad. Cada error cuenta.'},
+   pos:{left:'1000px',top:'75px'}},
+];
+const ZF={id:5,name:'Spring Trap + Prototipo',area:'BATALLA FINAL',color:'#c0392b',rgb:'192,57,43',
+  gc:'531',img:'https://i.redd.it/rdh9yazkucsg1.jpeg',
+  desc:'El momento definitivo. Spring Trap y el Prototipo esperan. Solo el Guardián puede sellarlos.',
+  gi:{icon:'⚡',title:'SELLO DE SPRING TRAP',txt:'Memoriza la secuencia y repítela. Empieza con 1 símbolo y llega hasta 5. Como Simon Says.'}};
+
+// ===== LOGIN =====
+let pin=[];
+function pp(d){if(pin.length>=4)return;pin.push(d);updPin();if(pin.length===4)st(penter,300);}
+function pdel(){pin.pop();updPin();document.getElementById('lb-err').textContent='';}
+function updPin(){for(let i=0;i<4;i++){const el=document.getElementById('pd'+i);if(pin[i]){el.textContent='●';el.classList.add('f');}else{el.textContent='_';el.classList.remove('f');}}}
+function penter(){
+  if(pin.join('')==='2812'){document.getElementById('lb-err').textContent='';goMap();}
+  else{document.getElementById('lb-err').textContent='⚠ CÓDIGO INCORRECTO';pin=[];updPin();}
+}
+
+// ===== MAP =====
+function goMap(){
+  clrT();
+  // stop video
+  document.getElementById('vid-if').src='';
+  renderMap();show('s-map');
+}
+
+function renderMap(){
+  const floor=document.getElementById('factory-floor');
+  floor.innerHTML='';
+  const caps=document.getElementById('pcaps');
+  caps.innerHTML=Z.map((_,i)=>`<div class="pcap ${S.completed.includes(i)?'done':S.unlocked.includes(i)&&!S.completed.includes(i)?'act':''}"></div>`).join('');
+  const hint=document.getElementById('map-hint');
+  const az=Z.find(z=>S.unlocked.includes(z.id)&&!S.completed.includes(z.id));
+  hint.textContent=az?`ACTIVA: ${az.name}`:S.completed.length===5?'BATALLA FINAL':'';
+
+  // Flechas SVG entre zonas
+  // Centros con nuevas posiciones (340x245px por tarjeta):
+  // Huggy(0):  40+170=210,  75+245/2=198  → centro: 210,198
+  // Mommy(1):  40+170=210, 400+245/2=523  → centro: 210,523
+  // CatNap(2): 520+170=690, 160+245/2=283  → centro: 690,283
+  // Doey(3):   520+170=690, 480+245/2=603  → centro: 690,603
+  // Doctor(4): 1000+170=1170, 75+245/2=198 → centro: 1170,198
+  // Final(5):  1480+210=1690, 290+280/2=430 → centro: 1690,430
+  const ARROWS=[
+    {from:0,to:2, x1:380,y1:198, x2:520,y2:283, show:S.unlocked.includes(2)},
+    {from:0,to:1, x1:210,y1:320, x2:210,y2:400, show:S.unlocked.includes(1)},
+    {from:2,to:4, x1:860,y1:283, x2:1000,y2:198, show:S.unlocked.includes(4)},
+    {from:2,to:3, x1:690,y1:405, x2:690,y2:480, show:S.unlocked.includes(3)},
+    {from:1,to:3, x1:380,y1:523, x2:520,y2:603, show:S.unlocked.includes(3)},
+    {from:4,to:5, x1:1340,y1:290, x2:1480,y2:380, show:S.completed.length===5},
+    {from:3,to:5, x1:860,y1:603, x2:1480,y2:480, show:S.completed.length===5},
+  ];
+
+  // SVG de flechas
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:15;overflow:visible;';
+  svg.innerHTML=`<defs>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <polygon points="0,0 8,3 0,6" fill="#00aaff" opacity=".9"/>
+    </marker>
+    <marker id="arr-done" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <polygon points="0,0 8,3 0,6" fill="#00ff88" opacity=".9"/>
+    </marker>
+  </defs>`;
+  ARROWS.forEach(a=>{
+    if(!a.show)return;
+    const done=S.completed.includes(a.from)&&S.completed.includes(a.to);
+    const color=done?'#00ff88':'#00aaff';
+    const markerId=done?'arr-done':'arr';
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    // curva cuadratica
+    const mx=(a.x1+a.x2)/2, my=(a.y1+a.y2)/2;
+    const cx=mx+(a.y2-a.y1)*0.15, cy=my-(a.x2-a.x1)*0.15;
+    path.setAttribute('d',`M${a.x1},${a.y1} Q${cx},${cy} ${a.x2},${a.y2}`);
+    path.setAttribute('stroke',color);
+    path.setAttribute('stroke-width','2.5');
+    path.setAttribute('fill','none');
+    path.setAttribute('opacity',done?'.7':'.5');
+    path.setAttribute('marker-end',`url(#${markerId})`);
+    path.setAttribute('stroke-dasharray','10 5');
+    path.style.animation='arrow-dash 1.2s linear infinite';
+    svg.appendChild(path);
+  });
+  floor.appendChild(svg);
+
+  // render zonas
+  Z.forEach(z=>{
+    const ul=S.unlocked.includes(z.id),done=S.completed.includes(z.id);
+    const d=document.createElement('div');
+    d.className='zcard'+(ul&&!done?' unlocked':'')+(done?' done':'');
+    d.style.cssText=`left:${z.pos.left};top:${z.pos.top};--zc:${z.color};--zr:${z.rgb};`;
+    if(ul&&!done)d.onclick=()=>openZone(z.id);
+    const maskClass=done||ul?'revealed':'';
+    d.innerHTML=`<div class="zcard-inner">
+      <div class="zmask ${maskClass}" id="zmask-${z.id}"></div>
+      <div class="lightning" id="zlight-${z.id}"></div>
+      <img class="zcard-img" src="${z.img}" onerror="this.style.opacity='.2'" alt="${z.name}">
+      <div class="zcard-bar">
+        <div class="zcard-name" style="color:${ul?z.color:'#333'}">${z.name}</div>
+        <div class="zcard-area">${z.area}</div>
+      </div>
+      ${!ul&&!done?'<div class="zcard-lock"><div class="zcard-lock-icon">🔒</div><div class="zcard-lock-txt">BLOQUEADO</div></div>':''}
+      ${done?'<div class="zcard-done-badge">✓</div>':''}
+    </div>`;
+    floor.appendChild(d);
+  });
+
+  // zona final — posicionada a la derecha del Doctor debajo
+  const allDone=S.completed.length===5,fdone=S.completed.includes(5);
+  const fd=document.createElement('div');
+  fd.className='zcard zfinal'+(allDone&&!fdone?' unlocked':'')+(fdone?' done':'');
+  fd.style.cssText=`left:1460px;top:290px;--zc:${ZF.color};--zr:${ZF.rgb};`;
+  if(allDone&&!fdone)fd.onclick=openFinal;
+  fd.innerHTML=`<div class="zcard-inner">
+    <div class="zmask ${allDone?'revealed':''}" id="zmask-5"></div>
+    <div class="lightning" id="zlight-5"></div>
+    <img class="zcard-img" src="${ZF.img}" onerror="this.style.opacity='.2'" alt="${ZF.name}" style="filter:${allDone?'brightness(.9)':'brightness(0)'}">
+    <div class="zcard-bar">
+      <div class="zcard-name" style="color:${allDone?ZF.color:'#333'}">${ZF.name}</div>
+      <div class="zcard-area">${ZF.area}</div>
+    </div>
+    ${!allDone?'<div class="zcard-lock"><div class="zcard-lock-icon">🔒</div><div class="zcard-lock-txt">COMPLETA TODAS LAS ZONAS</div></div>':''}
+    ${fdone?'<div class="zcard-done-badge">✓</div>':''}
+  </div>`;
+  floor.appendChild(fd);
+}
+
+function unlockWithAnim(id){
+  if(!S.unlocked.includes(id))S.unlocked.push(id);
+  renderMap();
+  st(()=>{
+    const mask=document.getElementById('zmask-'+id);
+    const light=document.getElementById('zlight-'+id);
+    if(mask){mask.classList.remove('revealed');mask.classList.add('revealing');}
+    if(light){light.classList.add('flash');st(()=>light.classList.remove('flash'),700);}
+    st(()=>{if(mask)mask.classList.add('revealed');},2600);
+  },400);
+}
+
+// ===== ZONE DETAIL =====
+function openZone(id){
+  S.curZone=id;
+  const z=Z[id];
+  document.getElementById('zs-img').src=z.img;
+  document.getElementById('zs-name').textContent=z.name;
+  document.getElementById('zs-name').style.color=z.color;
+  document.getElementById('zs-area').textContent=z.area;
+  document.getElementById('zs-desc').textContent=z.desc;
+  const vd=!!localStorage.getItem('vd'+id);
+  const pd=!!localStorage.getItem('pd'+id);
+  const gd=!!localStorage.getItem('gd'+id);
+  const w=document.getElementById('steps-wrap');
+  w.innerHTML=`
+    <div class="step vis ${vd?'done col':''}" id="st1-${id}">
+      <div class="step-hd"><div class="step-num" style="color:${z.color};border-color:${z.color}">1</div>
+        <div class="step-ttl" style="color:${z.color}">📺 VER INSTRUCCIONES DEL RETO</div><div class="step-ck">✅</div></div>
+      ${!vd?`<div class="step-bd"><div class="step-desc">Mira el video del personaje para entender qué hacer en el reto físico.</div>
+        <button class="btn-main btn-v" onclick="watchVid(${id},'intro')">▶ VER VIDEO DE ${z.name.toUpperCase()}</button></div>`:''}
+    </div>
+    <div class="step ${vd?'vis':''} ${pd?'done col':''}" id="st2-${id}">
+      <div class="step-hd"><div class="step-num" style="color:var(--green);border-color:var(--green)">2</div>
+        <div class="step-ttl" style="color:var(--green)">🏃 RETO FÍSICO — INGRESA EL CÓDIGO</div><div class="step-ck">✅</div></div>
+      ${!pd?`<div class="step-bd"><div class="step-desc">Completa el reto físico. Encontrarás un código de 3 dígitos. Ingrésalo aquí:</div>
+        <div class="code-row"><input type="number" class="code-f" id="cf-${id}" placeholder="_ _ _" maxlength="3">
+        <button class="btn-cv" onclick="chkCode(${id})">VERIFICAR</button></div>
+        <div class="code-msg" id="cm-${id}"></div></div>`:''}
+    </div>
+    <div class="step ${pd?'vis':''} ${gd?'done':''}" id="st3-${id}">
+      <div class="step-hd"><div class="step-num" style="color:#dd88ff;border-color:#dd88ff">3</div>
+        <div class="step-ttl" style="color:#dd88ff">⚡ RETO DIGITAL</div><div class="step-ck">✅</div></div>
+      <div class="step-bd"><div class="step-desc">El reto físico fue solo el comienzo. Ahora enfréntate directamente a ${z.name}.</div>
+        <button class="btn-main btn-g" onclick="openGame(${id})">⚡ INICIAR COMBATE</button></div>
+    </div>`;
+  show('s-zone');
+}
+
+function openFinal(){
+  S.curZone=5;
+  document.getElementById('zs-img').src=ZF.img;
+  document.getElementById('zs-name').textContent=ZF.name;
+  document.getElementById('zs-name').style.color=ZF.color;
+  document.getElementById('zs-area').textContent=ZF.area;
+  document.getElementById('zs-desc').textContent=ZF.desc;
+  document.getElementById('steps-wrap').innerHTML=`
+    <div class="step vis"><div class="step-hd"><div class="step-num" style="color:var(--red);border-color:var(--red)">⚡</div>
+      <div class="step-ttl" style="color:var(--red)">BATALLA FINAL</div></div>
+      <div class="step-bd"><div class="step-desc">Ha llegado el momento. Spring Trap y el Prototipo esperan.</div>
+        <button class="btn-main btn-g" style="background:linear-gradient(135deg,#5a0000,var(--red))" onclick="openGame(5)">💀 BATALLA FINAL</button></div>
+    </div>`;
+  show('s-zone');
+}
+
+function chkCode(id){
+  const z=Z[id],val=document.getElementById('cf-'+id).value.trim();
+  const msg=document.getElementById('cm-'+id);
+  if(val===z.code){
+    msg.className='code-msg ok';msg.textContent='✓ CÓDIGO CORRECTO';
+    localStorage.setItem('pd'+id,'1');toast('🔓 ¡Correcto!');
+    st(()=>openZone(id),800);
+  }else{msg.className='code-msg err';msg.textContent='✗ INCORRECTO';toast('❌ Código incorrecto');}
+}
+
+// ===== VIDEO =====
+function watchVid(id,type){
+  S.curZone=id;S.vidCtx=type;
+  const z=Z[id];const url=type==='intro'?z.vi:z.vd;
+  document.getElementById('vid-title').textContent=type==='intro'?`${z.name} — Instrucciones`:`${z.name} — Derrotado`;
+  document.getElementById('vid-sub').textContent=type==='intro'?'Mira con atención antes de comenzar':'Guardián eliminado';
+  document.getElementById('vid-if').src=url+'?autoplay=1&rel=0';
+  show('s-video');
+}
+function onVidDone(){
+  document.getElementById('vid-if').src='';
+  const id=S.curZone,type=S.vidCtx;
+  if(type==='intro'){localStorage.setItem('vd'+id,'1');openZone(id);}
+  else goMap();
+}
+
+// ===== GAMES =====
+function openGame(id){
+  S.curGame=id;S.lives=3;
+  const z=id===5?ZF:Z[id];
+  document.getElementById('gb-name').textContent=z.name.toUpperCase();
+  document.getElementById('gb-name').style.color=z.color;
+  document.getElementById('gb-lives').style.display=id===5?'none':'block';
+  updLives();
+  const gi=z.gi;
+  document.getElementById('gi-icon').textContent=gi.icon;
+  document.getElementById('gi-title').textContent=gi.title;
+  document.getElementById('gi-txt').textContent=gi.txt;
+  document.getElementById('g-intro').style.display='flex';
+  document.getElementById('g-lose').style.display='none';
+  document.getElementById('g-win').style.display='none';
+  buildCanvas(id);
+  show('s-game');
+}
+
+function buildCanvas(id){
+  const w=document.getElementById('g-wrap');
+  w.querySelectorAll('.g-area,.g1-area,.g1-field,.g1-hud,#g2f,#g2hud,#g3f,#g3dp,#g4f,#g5f,#g6f').forEach(e=>e.remove());
+  ['g-intro','g-lose','g-win'].forEach(oid=>{
+    const el=document.getElementById(oid);
+    if(el){el.style.position='absolute';el.style.zIndex='200';}
+  });
+  if(id===0)bG1(w);else if(id===1)bG2(w);else if(id===2)bG3(w);
+  else if(id===3)bG4(w);else if(id===4)bG5(w);else bG6(w);
+}
+
+function startGame(){
+  document.getElementById('g-intro').style.display='none';
+  const id=S.curGame;
+  if(id===0)sG1();else if(id===1)sG2();else if(id===2)sG3();
+  else if(id===3)sG4();else if(id===4)sG5();else sG6();
+}
+function retryGame(){
+  document.getElementById('g-lose').style.display='none';
+  S.lives=3;updLives();buildCanvas(S.curGame);startGame();
+}
+function updLives(){
+  const a=['💀💀💀','❤️💀💀','❤️❤️💀','❤️❤️❤️'];
+  document.getElementById('gb-lives').textContent=a[Math.max(0,S.lives)];
+}
+function loseLife(msg){S.lives--;updLives();if(S.lives<=0)showLose(msg);else toast(`❤️ ${S.lives} vidas`);}
+function showLose(msg){clrT();document.getElementById('gl-txt').textContent=msg||'¡Inténtalo!';document.getElementById('g-lose').style.display='flex';}
+function showWin(){
+  clrT();
+  const z=S.curGame===5?ZF:Z[S.curGame];
+  localStorage.setItem('gd'+S.curGame,'1');
+  document.getElementById('gw-code').textContent=z.gc;
+  document.getElementById('gw-txt').textContent=`¡${z.name} derrotado! Anota el código.`;
+  document.getElementById('g-win').style.display='flex';
+}
+function onWin(){
+  document.getElementById('g-win').style.display='none';
+  const id=S.curGame;
+  if(id===5){if(!S.completed.includes(5))S.completed.push(5);show('s-final');return;}
+  if(!S.completed.includes(id))S.completed.push(id);
+  const next=id+1;
+  if(next<=4&&!S.unlocked.includes(next)){unlockWithAnim(next);toast(`🔓 ¡${Z[next].name} desbloqueado!`,3000);}
+  else if(next===5&&S.completed.length===5){unlockWithAnim(5);toast('⚡ ¡BATALLA FINAL DISPONIBLE!',3000);}
+  st(()=>watchVid(id,'defeat'),500);
+}
+
+// ===== GAME 1: HUGGY - Atrapa =====
+// Huggy images cycling
+const H_IMGS=[
+  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLk9yw9zJKyCwkBmzsFIkuKzvn-9-A6b9QNA&s',
+  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLk9yw9zJKyCwkBmzsFIkuKzvn-9-A6b9QNA&s',
+  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLk9yw9zJKyCwkBmzsFIkuKzvn-9-A6b9QNA&s',
+  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSEdSVda-H_01cfKEx_26GucPXzlvTJs4UGGg&s',
+  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSk_laARiAGFklmb6UZg5LAEis2tA5QxtrXRw&s',
+  'https://pbs.twimg.com/media/GKQ4BDJXYAA6adT.jpg',
+  'https://media.vandal.net/i/1280x720/12-2025/9/202512917361592_1.jpg',
+  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSSjbuOizKX5OxPPdkXVYu_xbS34Xs1wsohEA&s',
+  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRTZVYn-NbZxf9Gm29J5JMYv9hgJIrBGwNkCQ&s',
+  'https://storage.ko-fi.com/cdn/useruploads/post/7de5fb5b-37ea-49b3-9d6b-17be7e8bda34_106fb689-75e5-4e81-bafb-e7d51e995e56.png',
+  'https://static.wikia.nocookie.net/motya-poppy-playtime-chapter-5/images/6/6e/HuggyWithered.png/revision/latest/scale-to-width-down/250?cb=20250219180441',
+];
+let g1s=0,g1t=30;
+function bG1(c){
+  g1s=0;g1t=30;
+  // Campo fullscreen - hijo directo de g-wrap
+  const f=document.createElement('div');f.className='g1-field';f.id='g1f';
+  const bg=document.createElement('img');bg.className='h-bg-img';
+  bg.src='https://es.gamewallpapers.com/download.php?img=wallpaper_poppy_playtime_01_1920x1080.jpg';
+  bg.onerror=()=>bg.style.display='none';
+  f.appendChild(bg);
+  // HUD flotante encima del campo
+  const hud=document.createElement('div');hud.className='g1-hud';
+  hud.innerHTML=`<div><div class="hud-lbl">Tocados</div><div class="hud-val" id="g1s">0/10</div></div>
+    <div><div class="hud-lbl">Tiempo</div><div class="hud-val" id="g1t">30s</div></div>`;
+  c.appendChild(f);
+  c.appendChild(hud);
+}
+function sG1(){
+  g1s=0;g1t=30;
+  st(()=>moveHuggy(),200);
+  si(()=>{g1t--;const el=document.getElementById('g1t');if(el)el.textContent=g1t+'s';if(g1t<=0){clrT();showLose('¡Huggy escapó! Tiempo agotado.');}},1000);
+}
+function moveHuggy(){
+  const f=document.getElementById('g1f');if(!f)return;
+  f.querySelector('.h-blob')?.remove();
+  const imgIdx=Math.min(g1s,H_IMGS.length-1);
+  const bw=200,bh=200;
+  const fw=f.offsetWidth||1200;
+  const fh=f.offsetHeight||700;
+  const b=document.createElement('div');b.className='h-blob';
+  const img=document.createElement('img');
+  img.src=H_IMGS[imgIdx];
+  img.onerror=()=>{img.style.display='none';b.innerHTML='<span style="font-size:5rem;color:#2980b9">👾</span>';};
+  b.appendChild(img);
+  b.style.left=Math.floor(Math.random()*(fw-bw))+'px';
+  b.style.top=Math.floor(Math.random()*(fh-bh))+'px';
+  b.onclick=()=>{g1s++;const el=document.getElementById('g1s');if(el)el.textContent=g1s+'/10';toast('👊 +1');if(g1s>=10){clrT();showWin();return;}moveHuggy();};
+  f.appendChild(b);
+  st(()=>{if(b.parentNode){b.remove();moveHuggy();}},2200);
+}
+
+// ===== GAME 2: MOMMY - Corta hilos =====
+const M_IMGS=[
+  'https://media.sketchfab.com/models/725b4cd440804ec8a416ed077faae02d/thumbnails/397817f3ba7f45ddaad835f0dfd5f7a6/a9d38ed6f4bf4780a913e741f4211006.jpeg',
+  'https://media.sketchfab.com/models/5deb57c9920949e99a607e2acb0daf17/thumbnails/49dd3bc29b2d4a039927d7659c90f653/45dbb5eba1b44b4fb38bd58a95607cda.jpeg',
+  'https://media.sketchfab.com/models/34bf031d224a409d81978695cd1872d5/thumbnails/901714f1226744f5b1610aee062a1e4e/d155ea3aaf0c4cc49acbdf3e4435d9e6.jpeg',
+  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRtbOyV9_nk4s2GSAUUccJN9RdmlpbbF6ugjw&s',
+  'https://www.spieltimes.io/wp-content/uploads/2022/05/Poppy-Playtime-Mommy-Long-Legs-Body.png',
+  'https://i.ytimg.com/vi/xJ1MxORgLI0/maxresdefault.jpg',
+];
+let g2c=0,g2e=0,g2rot;
+const WD=[{ok:true},{ok:true},{ok:true},{ok:true},{ok:true},{ok:true},{ok:false},{ok:false},{ok:false},{ok:false},{ok:false},{ok:false}];
+function bG2(c){
+  g2c=0;g2e=0;
+  // HUD flotante
+  const hud=document.createElement('div');hud.className='g1-hud';hud.id='g2hud';
+  hud.innerHTML=`<div><div class="hud-lbl">Cortados</div><div class="hud-val" id="g2c">0/6</div></div>
+    <div><div class="hud-lbl">Errores</div><div class="hud-val" style="color:var(--red)" id="g2e">0/3</div></div>
+    <div><div class="hud-lbl">Corta los</div><div class="hud-val" style="color:#e91e8c;font-size:.85rem">ROSAS</div></div>`;
+  // Campo fullscreen
+  const f=document.createElement('div');f.id='g2f';
+  f.style.cssText='position:absolute;inset:0;background:#0a0018;overflow:hidden;';
+  // Imagen fondo Mommy
+  const bg=document.createElement('img');
+  bg.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.25;pointer-events:none;';
+  bg.src='https://static0.srcdn.com/wordpress/wp-content/uploads/2022/12/project-playtime-mommy-long-legs-cover.jpg';
+  bg.onerror=()=>bg.style.display='none';
+  f.appendChild(bg);
+  // Imagen de derrota (flash al fallar)
+  const fi=document.createElement('div');fi.id='g2-fail-flash';
+  fi.style.cssText='position:absolute;inset:0;z-index:50;display:none;align-items:center;justify-content:center;flex-direction:column;';
+  fi.innerHTML=`<img src="https://i.ytimg.com/vi/sxJyg8e_u8Y/maxresdefault.jpg" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">
+    <div style="position:relative;z-index:2;font-family:var(--fhud);font-size:6rem;color:#ff0000;text-shadow:0 0 40px #ff0000,0 0 80px #ff0000;letter-spacing:8px;animation:blink .2s infinite;">FALLASTE</div>`;
+  f.appendChild(fi);
+  // Imagen de victorias parciales
+  const di=document.createElement('img');di.id='g2di';
+  di.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .4s;pointer-events:none;z-index:1;';
+  f.appendChild(di);
+  // Hilos
+  const shuffled=[...WD].sort(()=>Math.random()-.5);
+  const cols=4;
+  shuffled.forEach((w,i)=>{
+    const el=document.createElement('div');el.className='wire';
+    el.dataset.ok=w.ok;
+    const col=i%cols, row=Math.floor(i/cols);
+    el.style.cssText=`background:#e91e8c;left:${8+col*23}%;top:${5+row*32}%;height:${22+Math.random()*12}%;width:80px;border-radius:40px;position:absolute;cursor:pointer;transition:all .2s;z-index:5;box-shadow:0 0 18px currentColor;`;
+    el.onclick=()=>cutWire2(el,w.ok);
+    f.appendChild(el);
+  });
+  c.appendChild(f);
+  c.appendChild(hud);
+}
+function sG2(){
+  let rot=0;
+  g2rot=si(()=>{
+    rot++;
+    document.querySelectorAll('#g2f .wire:not(.cut)').forEach((w,i)=>{
+      if(w.dataset.ok==='true'){
+        const pinks=['#e91e8c','#ff69b4','#ff1493','#c2185b','#f06292'];
+        w.style.background=pinks[(rot+i)%pinks.length];
+      }else{
+        const others=['#27ae60','#2980b9','#f39c12','#8e44ad','#c0392b','#00bcd4','#ff5722'];
+        w.style.background=others[(rot+i)%others.length];
+      }
+    });
+  },4000);
+}
+function cutWire2(el,ok){
+  if(el.classList.contains('cut'))return;
+  if(ok){
+    el.classList.add('cut');el.style.opacity='.1';el.style.pointerEvents='none';
+    g2c++;
+    const sc=document.getElementById('g2c');if(sc)sc.textContent=g2c+'/6';
+    // mostrar imagen de derrota de Mommy progresiva
+    const di=document.getElementById('g2di');
+    if(di){di.src=M_IMGS[Math.min(g2c-1,M_IMGS.length-1)];di.style.opacity='.5';}
+    toast('✂️ ¡Cortado!');
+    if(g2c>=6){clrT();showWin();}
+  }else{
+    g2e++;
+    const er=document.getElementById('g2e');if(er)er.textContent=g2e+'/3';
+    // Flash de imagen de fallo
+    const ff=document.getElementById('g2-fail-flash');
+    if(ff){ff.style.display='flex';st(()=>{ff.style.display='none';},600);}
+    el.style.background='#333';el.style.opacity='.3';
+    if(g2e>=3){clrT();showLose('¡Mommy Long Legs te atrapó!');}
+  }
+}
+// Mantener cutWire para compatibilidad
+function cutWire(el,ok){cutWire2(el,ok);}
+
+
+// ===== GAME 3: CATNAP - Laberinto fullscreen =====
+// Laberinto 13x13 más grande y complejo
+const MZ=[
+  [1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,0,1,0,0,0,0,0,1],
+  [1,0,1,1,1,0,1,0,1,1,1,0,1],
+  [1,0,1,0,0,0,0,0,0,0,1,0,1],
+  [1,0,1,0,1,1,1,1,1,0,1,0,1],
+  [1,0,0,0,1,0,0,0,1,0,0,0,1],
+  [1,1,1,0,1,0,1,0,1,0,1,1,1],
+  [1,0,0,0,1,0,1,0,1,0,0,0,1],
+  [1,0,1,1,1,0,0,0,1,1,1,0,1],
+  [1,0,1,0,0,0,1,0,0,0,1,0,1],
+  [1,0,1,0,1,1,1,1,1,0,1,0,1],
+  [1,0,0,0,0,0,1,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1],
+];
+const MZ_SZ=13;
+let g3p={x:1,y:1},g3e={x:11,y:1},g3fast=false,g3smokeTimer=null;
+
+function bG3(c){
+  g3p={x:1,y:1};g3e={x:11,y:1};g3fast=false;
+  // Campo fullscreen
+  const f=document.createElement('div');f.id='g3f';
+  f.style.cssText='position:absolute;inset:0;background:#0a0018;overflow:hidden;';
+  // Humo rojo (overlay)
+  const smoke=document.createElement('div');smoke.id='g3smoke';
+  smoke.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:20;opacity:0;transition:opacity 1s;background:radial-gradient(ellipse at center,rgba(180,0,0,.55) 0%,rgba(80,0,0,.3) 60%,transparent 100%);';
+  f.appendChild(smoke);
+  // HUD flotante
+  const hud=document.createElement('div');hud.className='g1-hud';
+  hud.innerHTML=`<div><div class="hud-lbl">Llega a</div><div class="hud-val" style="font-size:1.5rem">⭐</div></div>
+    <div id="g3mode"><div class="hud-lbl">Modo</div><div class="hud-val" style="color:#8e44ad;font-size:.8rem">NORMAL</div></div>`;
+  c.appendChild(f);
+  c.appendChild(hud);
+  // Render maze calculando cell size para llenar pantalla
+  st(()=>renderMaze3(),50);
+}
+
+function renderMaze3(){
+  const f=document.getElementById('g3f');if(!f)return;
+  f.querySelectorAll('.mz3-wall,.mz3-exit,.mz3-player,.mz3-enemy,.mz3-dp').forEach(e=>e.remove());
+  const fw=f.offsetWidth||1400;
+  const fh=(f.offsetHeight||700)-130;
+  const CS=Math.floor(Math.min(fw*0.88,fh)/MZ_SZ);
+  const ox=Math.floor((fw-CS*MZ_SZ)/2);
+  const oy=20;
+  MZ.forEach((row,y)=>row.forEach((v,x)=>{
+    if(v===1){
+      const w=document.createElement('div');w.className='mz3-wall';
+      w.style.cssText=`position:absolute;background:#8e44ad;opacity:.8;left:${ox+x*CS}px;top:${oy+y*CS}px;width:${CS}px;height:${CS}px;`;
+      f.appendChild(w);
+    }
+  }));
+  const ex=document.createElement('div');ex.className='mz3-exit';
+  ex.style.cssText=`position:absolute;left:${ox+11*CS}px;top:${oy+11*CS}px;width:${CS}px;height:${CS}px;display:flex;align-items:center;justify-content:center;font-size:${Math.max(CS*.6,14)}px;z-index:5;`;
+  ex.textContent='⭐';f.appendChild(ex);
+  const en=document.createElement('div');en.className='mz3-enemy';en.id='g3en';
+  en.style.cssText=`position:absolute;left:${ox+g3e.x*CS}px;top:${oy+g3e.y*CS}px;width:${CS}px;height:${CS}px;border-radius:50%;overflow:hidden;z-index:10;transition:all .4s;`;
+  en.innerHTML=`<img src="${CN_IMG_NORMAL}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.textContent='😾'">`;
+  f.appendChild(en);
+  const pl=document.createElement('div');pl.className='mz3-player';pl.id='g3pl';
+  pl.style.cssText=`position:absolute;left:${ox+g3p.x*CS}px;top:${oy+g3p.y*CS}px;width:${CS}px;height:${CS}px;border-radius:50%;overflow:hidden;z-index:10;transition:all .12s;background:#f39c12;display:flex;align-items:center;justify-content:center;`;
+  pl.innerHTML=`<img src="https://em-content.zobj.net/source/google/387/boy_1f466.png" style="width:90%;height:90%;object-fit:contain;" onerror="this.style.display='none'">`;
+  f.appendChild(pl);
+  const dp=document.createElement('div');dp.className='mz3-dp dpad';
+  dp.style.cssText='position:absolute;bottom:.75rem;left:50%;transform:translateX(-50%);z-index:30;display:grid;grid-template-columns:repeat(3,60px);grid-template-rows:repeat(2,60px);gap:5px;';
+  dp.innerHTML=`<div class="de"></div><button class="db" onclick="m3(0,-1)">▲</button><div class="de"></div>
+    <button class="db" onclick="m3(-1,0)">◀</button><div class="de"></div><button class="db" onclick="m3(1,0)">▶</button>
+    <div class="de"></div><button class="db" onclick="m3(0,1)">▼</button><div class="de"></div>`;
+  f.appendChild(dp);
+  f.dataset.cs=CS;f.dataset.ox=ox;f.dataset.oy=oy;
+}
+
+const CN_IMG_NORMAL='https://preview.redd.it/catnap-from-poppy-playtime-chapter-3-deep-sleep-is-my-all-v0-x1x2eoq0n2ke1.png?auto=webp&s=7e256dbf509373ad7e8f42b460f156dbd61ac3d8';
+const CN_IMG_GAS='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQCj903UmnROwkmK7nqBGgu04LBouhyw7xGJQ&s';
+
+function sG3(){
+  // Ciclo exacto:
+  // Normal 5s → Gas 5s → Normal 10s → Gas 5s → Normal 10s → Gas 5s → (repite Normal 10s ↔ Gas 5s)
+  const ciclo=[
+    {humo:false, dur:5000},
+    {humo:true,  dur:5000},
+    {humo:false, dur:10000},
+    {humo:true,  dur:5000},
+    // a partir de aquí repite los últimos dos
+  ];
+  let fase=0;
+  function iniciarFase(){
+    const f=fase<ciclo.length ? ciclo[fase] : (fase%2===0 ? {humo:false,dur:10000} : {humo:true,dur:5000});
+    g3fast=f.humo;
+    const smoke=document.getElementById('g3smoke');
+    const modeEl=document.getElementById('g3mode');
+    const en=document.getElementById('g3en');
+    if(f.humo){
+      if(smoke)smoke.style.opacity='1';
+      if(modeEl)modeEl.innerHTML='<div class="hud-lbl">Modo</div><div class="hud-val" style="color:#c0392b;font-size:.8rem;animation:blink .5s infinite">⚠ GAS ROJO</div>';
+      if(en){const img=en.querySelector('img');if(img)img.src=CN_IMG_GAS;}
+    }else{
+      if(smoke)smoke.style.opacity='0';
+      if(modeEl)modeEl.innerHTML='<div class="hud-lbl">Modo</div><div class="hud-val" style="color:#8e44ad;font-size:.8rem">NORMAL</div>';
+      if(en){const img=en.querySelector('img');if(img)img.src=CN_IMG_NORMAL;}
+    }
+    fase++;
+    st(()=>iniciarFase(), f.dur);
+  }
+  iniciarFase();
+
+  function moverEnemigo(){
+    if(!document.getElementById('g3f'))return;
+    const f=document.getElementById('g3f');
+    const CS=parseInt(f.dataset.cs||60);
+    const ox=parseInt(f.dataset.ox||0);
+    const oy=parseInt(f.dataset.oy||20);
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    const v=dirs.filter(([dx,dy])=>{const nx=g3e.x+dx,ny=g3e.y+dy;return nx>=0&&nx<MZ_SZ&&ny>=0&&ny<MZ_SZ&&MZ[ny][nx]===0;});
+    if(v.length){
+      const[dx,dy]=v[Math.floor(Math.random()*v.length)];
+      g3e={x:g3e.x+dx,y:g3e.y+dy};
+      const e=document.getElementById('g3en');
+      if(e){e.style.left=ox+g3e.x*CS+'px';e.style.top=oy+g3e.y*CS+'px';}
+      if(g3e.x===g3p.x&&g3e.y===g3p.y){clrT();showLose('¡CatNap te atrapó!');}
+    }
+    // Normal: 1400ms — Gas rojo: 5x más rápido = 280ms
+    st(moverEnemigo, g3fast?280:1400);
+  }
+  st(moverEnemigo,1400);
+}
+
+function m3(dx,dy){
+  const nx=g3p.x+dx,ny=g3p.y+dy;
+  if(ny<0||ny>=MZ_SZ||nx<0||nx>=MZ_SZ||MZ[ny][nx]===1)return;
+  g3p={x:nx,y:ny};
+  const f=document.getElementById('g3f');if(!f)return;
+  const CS=parseInt(f.dataset.cs||64);
+  const ox=parseInt(f.dataset.ox||0);
+  const oy=parseInt(f.dataset.oy||0);
+  const p=document.getElementById('g3pl');
+  if(p){p.style.left=ox+nx*CS+'px';p.style.top=oy+ny*CS+'px';}
+  if(nx===11&&ny===11){clrT();showWin();return;}
+  if(nx===g3e.x&&ny===g3e.y){clrT();showLose('¡CatNap te atrapó!');}
+}
+
+
+// ===== GAME 4: DOEY - 3 Puzzles + Videos =====
+const DOEY_IMGS=[
+  'https://static.wikia.nocookie.net/p__/images/9/9b/DoeyHD.png/revision/latest?cb=20250308181817&path-prefix=protagonist',
+  'https://images.immediate.co.uk/production/volatile/sites/3/2025/01/Doey-The-Doughman2-81053ff.jpg',
+  'https://static0.gamerantimages.com/wordpress/wp-content/uploads/2025/06/poppy-playtime-chapter-4-story-so-far.jpg?w=1600&h=900&fit=crop',
+];
+// *** REEMPLAZA ESTOS LINKS CUANDO TENGAS LOS VIDEOS ***
+const DOEY_VID_ATACA  = 'https://www.youtube.com/embed/dQw4w9WgXcQ'; // Video 1: Doey atacando (loop)
+const DOEY_VID_GOLPE  = 'https://www.youtube.com/embed/dQw4w9WgXcQ'; // Video 2: Se ataca a Doey
+const DOEY_VID_DERROTA= 'https://www.youtube.com/embed/dQw4w9WgXcQ'; // Video 3: Doey derrotado
+
+let g4sel=null, g4orders=[], g4puzzleIdx=0, g4vidCycle=null;
+const PZ9=[0,1,2,3,4,5,6,7,8];
+
+function bG4(c){
+  g4sel=null; g4puzzleIdx=0;
+  // Generar 3 órdenes mezclados distintos
+  g4orders=[0,1,2].map(()=>[...PZ9].sort(()=>Math.random()-.5));
+  // Campo fullscreen dividido: izquierda puzzle | derecha video
+  const f=document.createElement('div');f.id='g4f';
+  f.style.cssText='position:absolute;inset:0;display:flex;background:#0a0500;';
+  // Panel izquierdo — puzzle
+  const left=document.createElement('div');left.id='g4left';
+  left.style.cssText='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;gap:.75rem;';
+  const prog=document.createElement('div');prog.id='g4prog';
+  prog.style.cssText='font-family:var(--fhud);font-size:.85rem;color:#e67e22;letter-spacing:2px;flex-shrink:0;';
+  prog.textContent='PUZZLE 1 DE 3';
+  const hint=document.createElement('div');
+  hint.style.cssText='font-family:var(--fmono);font-size:.7rem;color:var(--muted);letter-spacing:1px;flex-shrink:0;';
+  hint.textContent='Toca dos piezas para intercambiarlas';
+  const grid=document.createElement('div');grid.id='g4grid';
+  left.appendChild(prog);left.appendChild(hint);left.appendChild(grid);
+  // Panel derecho — video
+  const right=document.createElement('div');right.id='g4right';
+  right.style.cssText='width:45%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;gap:.75rem;border-left:1px solid #2a1500;';
+  const vidLabel=document.createElement('div');vidLabel.id='g4vidlabel';
+  vidLabel.style.cssText='font-family:var(--fhud);font-size:.75rem;color:#e67e22;letter-spacing:2px;';
+  vidLabel.textContent='⚠ DOEY ATACA';
+  const vidWrap=document.createElement('div');
+  vidWrap.style.cssText='width:100%;aspect-ratio:16/9;border:2px solid #e67e22;border-radius:6px;overflow:hidden;box-shadow:0 0 20px rgba(230,126,34,.3);';
+  const iframe=document.createElement('iframe');iframe.id='g4vid';
+  iframe.style.cssText='width:100%;height:100%;border:none;';
+  iframe.allow='autoplay';
+  iframe.src=DOEY_VID_ATACA+'?autoplay=1&loop=1&playlist=dQw4w9WgXcQ&mute=0';
+  vidWrap.appendChild(iframe);
+  right.appendChild(vidLabel);right.appendChild(vidWrap);
+  f.appendChild(left);f.appendChild(right);
+  c.appendChild(f);
+  st(()=>rPZ4(),80);
+}
+
+function sG4(){}
+
+function rPZ4(){
+  const grid=document.getElementById('g4grid');if(!grid)return;
+  grid.innerHTML='';
+  const f=document.getElementById('g4left');
+  const fw=f?f.offsetWidth:600;
+  const fh=f?f.offsetHeight-100:600;
+  const ps=Math.floor(Math.min(fw*0.9,fh*0.9)/3);
+  grid.style.cssText=`display:grid;grid-template-columns:repeat(3,${ps}px);grid-template-rows:repeat(3,${ps}px);gap:3px;border:2px solid #e67e22;border-radius:8px;overflow:hidden;box-shadow:0 0 25px rgba(230,126,34,.3);`;
+  const order=g4orders[g4puzzleIdx];
+  const img=DOEY_IMGS[g4puzzleIdx];
+  order.forEach((idx,pos)=>{
+    const p=document.createElement('div');
+    p.className='pz'+(idx===pos?' ok':'');
+    p.style.cssText=`width:${ps}px;height:${ps}px;position:relative;overflow:hidden;cursor:pointer;transition:all .2s;`;
+    const col=idx%3,row=Math.floor(idx/3);
+    p.innerHTML=`<img src="${img}" style="position:absolute;width:300%;height:300%;left:-${col*100}%;top:-${row*100}%;object-fit:cover;pointer-events:none;" onerror="this.parentNode.style.background='#2a1500'">`;
+    p.dataset.pos=pos;p.onclick=()=>selPZ4(pos);
+    grid.appendChild(p);
+  });
+  // Actualizar progreso
+  const prog=document.getElementById('g4prog');
+  if(prog)prog.textContent=`PUZZLE ${g4puzzleIdx+1} DE 3`;
+  checkPuzzleDone4();
+}
+
+function selPZ4(pos){
+  const pieces=document.querySelectorAll('#g4grid .pz');
+  if(g4sel===null){g4sel=pos;if(pieces[pos])pieces[pos].classList.add('sel');}
+  else{
+    if(g4sel!==pos){
+      const order=g4orders[g4puzzleIdx];
+      const t=order[g4sel];order[g4sel]=order[pos];order[pos]=t;
+      g4sel=null;rPZ4();
+    }else{if(pieces[pos])pieces[pos].classList.remove('sel');g4sel=null;}
+  }
+}
+
+function checkPuzzleDone4(){
+  const order=g4orders[g4puzzleIdx];
+  if(!order.every((v,i)=>v===i))return;
+  // Puzzle completado — mostrar video de ataque
+  st(()=>doeyPuzzleComplete(),300);
+}
+
+function doeyPuzzleComplete(){
+  const iframe=document.getElementById('g4vid');
+  const label=document.getElementById('g4vidlabel');
+  if(g4puzzleIdx<2){
+    // Videos 1 y 2: mostrar golpe, luego volver a atacar, luego siguiente puzzle
+    if(label)label.textContent='💥 GOLPE A DOEY';
+    if(iframe)iframe.src=DOEY_VID_GOLPE+'?autoplay=1';
+    // Después de ~6 seg volver al video de ataque y cargar siguiente puzzle
+    st(()=>{
+      if(label)label.textContent='⚠ DOEY ATACA';
+      if(iframe)iframe.src=DOEY_VID_ATACA+'?autoplay=1&loop=1&playlist=dQw4w9WgXcQ';
+      g4puzzleIdx++;
+      rPZ4();
+    },6000);
+  } else {
+    // Puzzle 3 completado — video de derrota final
+    if(label)label.textContent='🏆 DOEY DERROTADO';
+    if(iframe)iframe.src=DOEY_VID_DERROTA+'?autoplay=1';
+    st(()=>showWin(),8000);
+  }
+}
+
+// ===== GAME 5: DOCTOR - Terminal =====
+const QQ=[
+  {q:'¿Cuál es el animal más grande del mundo?',opts:['Elefante africano','Tiburón ballena','Ballena azul','Jirafa'],ok:2},
+  {q:'¿Cómo se llama el traje de resorte donde queda atrapado William Afton en FNAF?',opts:['Golden Freddy','Fredbear','Spring Trap','Nightmare'],ok:2},
+  {q:'¿Cuántos lados tiene un triángulo?',opts:['2','3','4','5'],ok:1},
+  {q:'¿De qué color es el gas que libera CatNap para dormir a sus víctimas?',opts:['Azul','Verde','Morado','Rojo'],ok:3},
+  {q:'¿Cómo se llama el libro que publicó Chuymine?',opts:['Pixel','El Avatar','Multiverso','Gamer'],ok:2},
+];
+let g5cur=0,g5ans=false;
+function bG5(c){
+  g5cur=0;g5ans=false;
+  const f=document.createElement('div');f.id='g5f';
+  f.style.cssText='position:absolute;inset:0;background:#000d00;display:flex;align-items:center;justify-content:center;overflow:hidden;';
+  const flash=document.createElement('div');flash.id='g5flash';
+  flash.style.cssText='position:absolute;inset:0;z-index:50;display:none;align-items:center;justify-content:center;flex-direction:column;';
+  flash.innerHTML=`<img src="https://static.wikia.nocookie.net/pplaytime/images/0/09/DoctorTakeover-Thumbnail.jpg/revision/latest/thumbnail/width/360/height/360?cb=20250614183653" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">
+    <div style="position:relative;z-index:2;font-family:var(--fhud);font-size:6rem;color:#ff0000;text-shadow:0 0 40px #ff0000,0 0 80px #ff0000;letter-spacing:8px;animation:blink .2s infinite;">INCORRECTO</div>`;
+  f.appendChild(flash);
+  const term=document.createElement('div');term.id='g5term';
+  term.style.cssText='width:min(900px,88%);background:#000d00;border:2px solid #27ae60;border-radius:8px;padding:2rem;font-family:var(--fmono);box-shadow:0 0 30px rgba(39,174,96,.3);position:relative;z-index:1;';
+  f.appendChild(term);
+  c.appendChild(f);
+  // Delay para asegurar que el DOM esté listo
+  st(()=>rTerm(),100);
+}
+function sG5(){}
+function rTerm(){
+  const f=document.getElementById('g5term');if(!f)return;
+  const q=QQ[g5cur];
+  const dots=QQ.map((_,i)=>`<div class="t-dot ${i<g5cur?'done':i===g5cur?'cur':''}"></div>`).join('');
+  f.innerHTML=`
+    <img src="https://images.steamusercontent.com/ugc/20933883111186356/AC431DA549C2FA3B679A26EB4E0340E9146623D9/?imw=637&imh=358&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true" style="width:100%;max-height:200px;object-fit:cover;border-radius:4px;margin-bottom:1rem;opacity:.75;" onerror="this.style.display='none'">
+    <div class="tl dim">PLAYTIME CO. — SECURITY TERMINAL v2.4</div>
+    <div class="tl dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+    <div class="tl">ACCESO DENEGADO. Demuestra tu inteligencia.</div>
+    <div class="t-dots" style="margin:.6rem 0;">${dots}</div>
+    <div class="tl dim">Pregunta ${g5cur+1} de ${QQ.length}:</div>
+    <div class="tl q" style="font-size:1.1rem;margin:.75rem 0;">> ${q.q}</div>
+    <div class="t-opts">${q.opts.map((o,i)=>`<button class="t-btn" style="font-size:1rem;padding:.7rem 1rem;" onclick="ansQ(${i})">[${i+1}] ${o}</button>`).join('')}</div>
+    <div class="tl" id="tfb" style="min-height:1.4em;margin-top:.5rem;font-size:.95rem;"></div>`;
+}
+function ansQ(idx){
+  if(g5ans)return;g5ans=true;
+  const q=QQ[g5cur];
+  const btns=document.querySelectorAll('#g5term .t-btn');
+  const fb=document.getElementById('tfb');
+  if(idx===q.ok){
+    if(btns[idx])btns[idx].classList.add('ok');
+    if(fb){fb.textContent='> ✓ CORRECTO. Capa de seguridad desactivada.';fb.style.color='#00ff41';}
+    g5cur++;
+    if(g5cur>=QQ.length){st(()=>showWin(),800);}
+    else{st(()=>{g5ans=false;rTerm();},900);}
+  }else{
+    if(btns[idx])btns[idx].classList.add('bad');
+    if(fb){fb.textContent='> ✗ INCORRECTO. Alerta de seguridad.';fb.style.color='var(--red)';}
+    const fl=document.getElementById('g5flash');
+    if(fl){fl.style.display='flex';st(()=>{fl.style.display='none';},700);}
+    st(()=>{
+      g5ans=false;
+      if(S.lives>1){loseLife('Respuesta incorrecta');st(()=>rTerm(),400);}
+      else{showLose('El Doctor bloqueó el sistema.');}
+    },900);
+  }
+}
+
+// ===== GAME 6: SIMON SAYS - Sello =====
+const SY_POOL=[
+  'https://i.pinimg.com/564x/15/f2/f1/15f2f1b33ff45abfa88b2e45da167d34.jpg',
+  'https://i.pinimg.com/originals/9a/a2/11/9aa2112b7dfbb22e2e851b96745e5ed6.png',
+  'https://i.redd.it/041znvbs9fi61.jpg',
+  'https://i.pinimg.com/736x/44/e3/13/44e3139d227eee14834b7f1a9b64ddec.jpg',
+  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSbPOTRrHc4oo7Ix1bkhxzKM-735x9QfJl3QQ&s',
+];
+let g6seq=[],g6inp=[],g6phase=0,g6showing=false;
+
+function bG6(c){
+  g6seq=[];g6inp=[];g6phase=0;g6showing=false;
+  const f=document.createElement('div');f.id='g6f';
+  f.style.cssText='position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;';
+  const bg=document.createElement('img');
+  bg.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.35;pointer-events:none;';
+  bg.src='https://i.redd.it/rdh9yazkucsg1.jpeg';bg.onerror=()=>bg.style.display='none';
+  f.appendChild(bg);
+  // Flash de error
+  const errFlash=document.createElement('div');errFlash.id='g6err';
+  errFlash.style.cssText='position:absolute;inset:0;z-index:50;display:none;align-items:center;justify-content:center;';
+  errFlash.innerHTML=`<img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRqURAzKT0c398TPi2oU_pdQIU8G58iFvtKkQ&s" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">
+    <div style="position:relative;z-index:2;font-family:var(--fhud);font-size:5rem;color:#ff0000;text-shadow:0 0 40px #ff0000;letter-spacing:6px;animation:blink .2s infinite;">¡ERROR!</div>`;
+  f.appendChild(errFlash);
+  const wrap=document.createElement('div');
+  wrap.style.cssText='position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:1.5rem;width:100%;';
+  wrap.innerHTML=`
+    <div style="font-family:var(--fhud);font-size:1.6rem;color:#c0392b;letter-spacing:4px;text-shadow:0 0 20px #c0392b;">⚡ SELLO DE SPRING TRAP ⚡</div>
+    <div id="g6lbl" style="font-family:var(--fmono);font-size:1rem;color:#e74c3c;letter-spacing:2px;">Memoriza la secuencia...</div>
+    <div id="g6flash-panel" style="min-height:160px;display:flex;gap:1rem;align-items:center;justify-content:center;"></div>
+    <div id="g6ir" style="display:flex;gap:1rem;min-height:90px;align-items:center;justify-content:center;"></div>
+    <div id="g6bg" style="display:flex;gap:1.2rem;flex-wrap:wrap;justify-content:center;">
+      ${SY_POOL.map((src,i)=>`<button onclick="tapSimon(${i})" style="width:120px;height:120px;border-radius:50%;overflow:hidden;border:3px solid #c0392b;cursor:pointer;background:#000;padding:0;transition:transform .15s;box-shadow:0 0 15px rgba(192,57,43,.5);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"><img src="${src}" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" onerror="this.style.display='none'"></button>`).join('')}
+    </div>
+    <button onclick="clearSimon()" style="font-family:var(--fmono);font-size:.85rem;color:#c0392b;background:rgba(192,57,43,.1);border:1px solid #c0392b;border-radius:4px;padding:.5rem 1.5rem;cursor:pointer;letter-spacing:2px;">↩ BORRAR</button>`;
+  f.appendChild(wrap);
+  c.appendChild(f);
+}
+
+function sG6(){
+  // Generar secuencia de 5 sin repetir: shuffle de índices 0-4
+  const shuffled=[0,1,2,3,4].sort(()=>Math.random()-.5);
+  g6seq=[];g6inp=[];g6phase=0;
+  // Guardar la secuencia completa shuffled para ir revelándola por rondas
+  window._g6full=shuffled;
+  nextSimonRound();
+}
+
+function nextSimonRound(){
+  g6showing=true;
+  // Agregar siguiente de la secuencia sin repetir
+  if(g6seq.length===g6phase){
+    g6seq.push(window._g6full[g6phase]);
+    g6phase++;
+  }
+  g6inp=[];
+  const lbl=document.getElementById('g6lbl');
+  const fp=document.getElementById('g6flash-panel');
+  const ir=document.getElementById('g6ir');
+  if(lbl)lbl.textContent=`Ronda ${g6seq.length} de 5 — ¡MEMORIZA!`;
+  if(fp)fp.innerHTML='';
+  if(ir)ir.innerHTML='';
+  document.querySelectorAll('#g6bg button').forEach(b=>b.style.pointerEvents='none');
+  mostrarSecuencia6(()=>{
+    g6showing=false;
+    if(fp)fp.innerHTML='';
+    if(lbl)lbl.textContent=`Repite la secuencia (${g6seq.length} imagen${g6seq.length>1?'es':''})`;
+    if(ir){
+      ir.innerHTML='';
+      g6seq.forEach((_,i)=>{
+        const sl=document.createElement('div');sl.id='g6s'+i;
+        sl.style.cssText='width:80px;height:80px;border-radius:50%;border:2px solid #555;background:#111;overflow:hidden;';
+        ir.appendChild(sl);
+      });
+    }
+    document.querySelectorAll('#g6bg button').forEach(b=>b.style.pointerEvents='');
+  });
+}
+
+function mostrarSecuencia6(onDone){
+  const fp=document.getElementById('g6flash-panel');
+  // Cada imagen: 2s visible, 400ms pausa → total 2400ms por imagen
+  g6seq.forEach((idx,i)=>{
+    st(()=>{
+      if(fp)fp.innerHTML=`<div style="width:160px;height:160px;border-radius:50%;overflow:hidden;border:4px solid #c0392b;box-shadow:0 0 30px #c0392b;"><img src="${SY_POOL[idx]}" style="width:100%;height:100%;object-fit:cover;"></div>`;
+    },i*2400);
+    st(()=>{if(fp)fp.innerHTML='';},i*2400+2000);
+  });
+  st(onDone, g6seq.length*2400+400);
+}
+
+function tapSimon(idx){
+  if(g6showing)return;
+  if(g6inp.length>=g6seq.length)return;
+  g6inp.push(idx);
+  const pos=g6inp.length-1;
+  const sl=document.getElementById('g6s'+pos);
+  if(sl){sl.innerHTML=`<img src="${SY_POOL[idx]}" style="width:100%;height:100%;object-fit:cover;">`;sl.style.borderColor='#c0392b';}
+  if(g6inp[pos]!==g6seq[pos]){
+    const fl=document.getElementById('g6err');
+    if(fl){fl.style.display='flex';st(()=>{fl.style.display='none';},800);}
+    g6inp=[];g6phase=g6seq.length;
+    // Repetir MISMA secuencia
+    st(()=>{
+      g6showing=true;
+      const lbl=document.getElementById('g6lbl');
+      const fp=document.getElementById('g6flash-panel');
+      const ir=document.getElementById('g6ir');
+      if(lbl)lbl.textContent=`¡Inténtalo de nuevo! Ronda ${g6seq.length}`;
+      if(fp)fp.innerHTML='';if(ir)ir.innerHTML='';
+      document.querySelectorAll('#g6bg button').forEach(b=>b.style.pointerEvents='none');
+      mostrarSecuencia6(()=>{
+        g6showing=false;if(fp)fp.innerHTML='';
+        if(lbl)lbl.textContent=`Repite la secuencia (${g6seq.length} imagen${g6seq.length>1?'es':''})`;
+        if(ir){ir.innerHTML='';g6seq.forEach((_,i)=>{const sl=document.createElement('div');sl.id='g6s'+i;sl.style.cssText='width:80px;height:80px;border-radius:50%;border:2px solid #555;background:#111;overflow:hidden;';ir.appendChild(sl);});}
+        document.querySelectorAll('#g6bg button').forEach(b=>b.style.pointerEvents='');
+      });
+    },900);
+    return;
+  }
+  if(g6inp.length===g6seq.length){
+    if(g6seq.length>=5){
+      clrT();
+      // Video final + pantalla de cierre con botón reset
+      st(()=>showFinalEnding(),600);
+    } else {
+      toast('✅ ¡Correcto! Siguiente ronda...');
+      g6inp=[];st(()=>nextSimonRound(),1000);
+    }
+  }
+}
+
+function showFinalEnding(){
+  const w=document.getElementById('g-wrap');
+  w.querySelectorAll('#g6f').forEach(e=>e.remove());
+  const end=document.createElement('div');
+  end.style.cssText='position:absolute;inset:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:300;gap:2rem;';
+  end.innerHTML=`
+    <div style="width:80%;aspect-ratio:16/9;border:2px solid #c0392b;border-radius:8px;overflow:hidden;box-shadow:0 0 40px rgba(192,57,43,.6);">
+      <iframe id="final-vid" src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1" style="width:100%;height:100%;border:none;" allow="autoplay"></iframe>
+    </div>
+    <div style="font-family:var(--fhud);font-size:1.2rem;color:#c0392b;letter-spacing:3px;text-align:center;">Golden Freddy cierra el sello...<br><span style="color:#888;font-size:.8rem;font-family:var(--fmono);">Continuará en la Entrega 3</span></div>
+    <button onclick="resetGame()" style="margin-top:1rem;font-family:var(--fhud);font-size:1rem;color:#000;background:#c0392b;border:none;border-radius:6px;padding:.75rem 2.5rem;cursor:pointer;letter-spacing:3px;box-shadow:0 0 20px rgba(192,57,43,.6);">🔄 JUGAR DESDE EL INICIO</button>`;
+  w.appendChild(end);
+}
+
+function resetGame(){
+  S.completed=[];S.unlocked=[0];S.lives=3;S.phase=0;
+  localStorage.clear();
+  location.reload();
+}
+
+function clearSimon(){
+  g6inp=[];
+  document.querySelectorAll('#g6ir > div').forEach(s=>{s.innerHTML='';s.style.borderColor='#555';});
+}
+function retrySimon(){}
+
+// ===== DEBUG: saltar zona =====
+function debugNext(){
+  // Encuentra la primera zona no completada y la marca como completada
+  for(let i=0;i<=5;i++){
+    if(!S.completed.includes(i)){
+      if(!S.unlocked.includes(i))S.unlocked.push(i);
+      S.completed.push(i);
+      const next=i+1;
+      if(next<=5&&!S.unlocked.includes(next))S.unlocked.push(next);
+      localStorage.setItem('gdone'+i,'1');
+      localStorage.setItem('pdone'+i,'1');
+      localStorage.setItem('vdone'+i,'1');
+      toast(`⚡ Zona ${i} desbloqueada`);
+      renderMap();
+      return;
+    }
+  }
+  toast('¡Todas las zonas completadas!');
+}
+
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp')m3(0,-1);
+  else if(e.key==='ArrowDown')m3(0,1);
+  else if(e.key==='ArrowLeft')m3(-1,0);
+  else if(e.key==='ArrowRight')m3(1,0);
+});
+</script>
+</body>
+</html>
