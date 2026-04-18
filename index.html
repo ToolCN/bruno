@@ -280,8 +280,8 @@ background:radial-gradient(ellipse at 50% 40%,#0a0a00,#020203);align-items:cente
 
 <!-- INTRO VIDEO 0 -->
 <div id="s-intro" class="scr on">
-  <div class="intro-vid-wrap" id="intro-vid-wrap">
-    <iframe id="intro-iframe" src="" allowfullscreen allow="autoplay;encrypted-media"></iframe>
+  <div class="intro-vid-wrap" id="intro-vid-wrap" style="display:none;">
+    <div id="intro-iframe"></div>
     <button class="intro-skip" onclick="skipIntro()">⏭ SALTAR</button>
   </div>
   <button class="intro-btn" id="intro-play-btn" onclick="playIntroVideo()">
@@ -464,19 +464,29 @@ function playIntroVideo(){
   document.getElementById('intro-play-btn').style.display='none';
   const wrap=document.getElementById('intro-vid-wrap');
   wrap.style.display='block';
-  document.getElementById('intro-iframe').src='https://www.youtube-nocookie.com/embed/JKfaM_T__Y4?autoplay=1&rel=0&modestbranding=1';
+  // Cargar YouTube IFrame API
+  if(!window.YT){
+    const tag=document.createElement('script');
+    tag.src='https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+    window.onYouTubeIframeAPIReady=initIntroPlayer;
+  } else {
+    initIntroPlayer();
+  }
+}
+function initIntroPlayer(){
+  new YT.Player('intro-iframe',{
+    height:'100%',width:'100%',
+    videoId:'JKfaM_T__Y4',
+    playerVars:{autoplay:1,rel:0,modestbranding:1,origin:location.origin||'https://toolcn.github.io'},
+    events:{onStateChange:e=>{if(e.data===0)skipIntro();}}
+  });
 }
 function skipIntro(){
-  document.getElementById('intro-iframe').src='';
-  document.getElementById('intro-vid-wrap').style.display='none';
+  const wrap=document.getElementById('intro-vid-wrap');
+  wrap.style.display='none';
   show('s-login');
 }
-window.addEventListener('message',e=>{
-  try{
-    const d=JSON.parse(e.data);
-    if(d.event==='onStateChange'&&d.info===0) skipIntro();
-  }catch(err){}
-});
 
 // ===== AUDIO ENTRADA RETO DIGITAL =====
 let doeyAudio=null;
