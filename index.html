@@ -1621,8 +1621,6 @@ function rTerm(){
   const f=document.getElementById('g5term');if(!f)return;
   const q=g5questions[g5cur];
   const dots=g5questions.map((_,i)=>`<div class="t-dot ${i<g5cur?'done':i===g5cur?'cur':''}"></div>`).join('');
-  // *** Tiempo decreciente: 15s, 13.5s, 12s, 10.5s, 9s ***
-  g5timeLeft = Math.max(8, G5_TIEMPO_INICIAL - g5cur*1.5);
 
   // Mostrar las 5 vidas como corazones
   const corazones = Array.from({length:5},(_,i)=>i<g5vidas?'❤':'🖤').join(' ');
