@@ -889,7 +889,12 @@ function moveHuggy(){
   b.style.top=Math.floor(Math.random()*(fh-bh))+'px';
   b.onclick=()=>{g1s++;const el=document.getElementById('g1s');if(el)el.textContent=g1s+'/10';toast('👊 +1');if(g1s>=10){clrT();showWin();return;}moveHuggy();};
   f.appendChild(b);
-  st(()=>{if(b.parentNode){b.remove();moveHuggy();}},2200);
+  // *** CAMBIO PRINCIPAL: velocidad progresiva ***
+  // Toque 0: 2200ms (igual que antes)
+  // Toque 9: 600ms (3.6x más rápido)
+  // Interpolación lineal: tiempo = 2200 - (g1s * 178)
+  const tiempo = Math.max(600, 2200 - (g1s * 178));
+  st(()=>{if(b.parentNode){b.remove();moveHuggy();}}, tiempo);
 }
 
 // ===== GAME 2: MOMMY - Corta hilos =====
@@ -902,12 +907,13 @@ const M_IMGS=[
   'https://i.ytimg.com/vi/xJ1MxORgLI0/maxresdefault.jpg',
 ];
 let g2c=0,g2e=0,g2rot;
-const WD=[{ok:true},{ok:true},{ok:true},{ok:true},{ok:true},{ok:true},{ok:false},{ok:false},{ok:false},{ok:false},{ok:false},{ok:false}];
+// Necesitamos cortar 6 rosas en total para ganar
+const G2_META=6;
 function bG2(c){
   g2c=0;g2e=0;
   // HUD flotante
   const hud=document.createElement('div');hud.className='g1-hud';hud.id='g2hud';
-  hud.innerHTML=`<div><div class="hud-lbl">Cortados</div><div class="hud-val" id="g2c">0/6</div></div>
+  hud.innerHTML=`<div><div class="hud-lbl">Cortados</div><div class="hud-val" id="g2c">0/${G2_META}</div></div>
     <div><div class="hud-lbl">Errores</div><div class="hud-val" style="color:var(--red)" id="g2e">0/3</div></div>
     <div><div class="hud-lbl">Corta los</div><div class="hud-val" style="color:#e91e8c;font-size:.85rem">ROSAS</div></div>`;
   // Campo fullscreen
@@ -929,22 +935,40 @@ function bG2(c){
   const di=document.createElement('img');di.id='g2di';
   di.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .4s;pointer-events:none;z-index:1;';
   f.appendChild(di);
-  // Hilos
-  const shuffled=[...WD].sort(()=>Math.random()-.5);
-  const cols=4;
+  // Generar primera ronda con 9 hilos
+  generarHilosG2(f, 9);
+  c.appendChild(f);
+  c.appendChild(hud);
+}
+
+// *** NUEVO: función que genera hilos con cantidad variable ***
+function generarHilosG2(f, totalHilos){
+  // Quitar hilos viejos
+  f.querySelectorAll('.wire').forEach(w=>w.remove());
+  // Mitad rosas (cortar), mitad trampas (no cortar) — siempre par
+  const mitad = Math.ceil(totalHilos/2);
+  const arr = [];
+  for(let i=0;i<mitad;i++) arr.push({ok:true});
+  for(let i=mitad;i<totalHilos;i++) arr.push({ok:false});
+  const shuffled = arr.sort(()=>Math.random()-.5);
+  // Calcular columnas dinámicamente para que quepan bien
+  const cols = totalHilos<=12 ? 4 : (totalHilos<=18 ? 5 : 6);
+  const filas = Math.ceil(totalHilos/cols);
   shuffled.forEach((w,i)=>{
     const el=document.createElement('div');el.className='wire';
     el.dataset.ok=w.ok;
     const col=i%cols, row=Math.floor(i/cols);
-    el.style.cssText=`background:#e91e8c;left:${8+col*23}%;top:${5+row*32}%;height:${22+Math.random()*12}%;width:80px;border-radius:40px;position:absolute;cursor:pointer;transition:all .2s;z-index:5;box-shadow:0 0 18px currentColor;`;
+    const anchoCol = 92/cols;
+    const altoFila = 90/filas;
+    el.style.cssText=`background:#e91e8c;left:${4+col*anchoCol}%;top:${5+row*altoFila}%;height:${altoFila*0.7}%;width:60px;border-radius:30px;position:absolute;cursor:pointer;transition:all .2s;z-index:5;box-shadow:0 0 18px currentColor;`;
     el.onclick=()=>cutWire2(el,w.ok);
     f.appendChild(el);
   });
-  c.appendChild(f);
-  c.appendChild(hud);
 }
+
 function sG2(){
   let rot=0;
+  // *** CAMBIO: colores cambian cada 800ms en lugar de 4000ms (5x más rápido) ***
   g2rot=si(()=>{
     rot++;
     document.querySelectorAll('#g2f .wire:not(.cut)').forEach((w,i)=>{
@@ -956,19 +980,24 @@ function sG2(){
         w.style.background=others[(rot+i)%others.length];
       }
     });
-  },4000);
+  },800);
 }
 function cutWire2(el,ok){
   if(el.classList.contains('cut'))return;
   if(ok){
     el.classList.add('cut');el.style.opacity='.1';el.style.pointerEvents='none';
     g2c++;
-    const sc=document.getElementById('g2c');if(sc)sc.textContent=g2c+'/6';
+    const sc=document.getElementById('g2c');if(sc)sc.textContent=g2c+'/'+G2_META;
     // mostrar imagen de derrota de Mommy progresiva
     const di=document.getElementById('g2di');
     if(di){di.src=M_IMGS[Math.min(g2c-1,M_IMGS.length-1)];di.style.opacity='.5';}
     toast('✂️ ¡Cortado!');
-    if(g2c>=6){clrT();showWin();}
+    if(g2c>=G2_META){clrT();showWin();return;}
+    // *** NUEVO: regenerar hilos con MÁS cantidad cada vez ***
+    // Progresión: 9 → 12 → 15 → 18 → 21 → 24
+    const nuevaCantidad = 9 + (g2c * 3);
+    const f = document.getElementById('g2f');
+    if(f) generarHilosG2(f, nuevaCantidad);
   }else{
     g2e++;
     const er=document.getElementById('g2e');if(er)er.textContent=g2e+'/3';
@@ -982,29 +1011,51 @@ function cutWire2(el,ok){
 // Mantener cutWire para compatibilidad
 function cutWire(el,ok){cutWire2(el,ok);}
 
-
 // ===== GAME 3: CATNAP - Laberinto fullscreen =====
-// Laberinto 13x13 más grande y complejo
+// *** CAMBIO: Laberinto 17x17 (antes 13x13) ***
+// 0 = camino, 1 = pared, 2 = pared dinámica (puede aparecer/desaparecer)
 const MZ=[
-  [1,1,1,1,1,1,1,1,1,1,1,1,1],
-  [1,0,0,0,0,0,1,0,0,0,0,0,1],
-  [1,0,1,1,1,0,1,0,1,1,1,0,1],
-  [1,0,1,0,0,0,0,0,0,0,1,0,1],
-  [1,0,1,0,1,1,1,1,1,0,1,0,1],
-  [1,0,0,0,1,0,0,0,1,0,0,0,1],
-  [1,1,1,0,1,0,1,0,1,0,1,1,1],
-  [1,0,0,0,1,0,1,0,1,0,0,0,1],
-  [1,0,1,1,1,0,0,0,1,1,1,0,1],
-  [1,0,1,0,0,0,1,0,0,0,1,0,1],
-  [1,0,1,0,1,1,1,1,1,0,1,0,1],
-  [1,0,0,0,0,0,1,0,0,0,0,0,1],
-  [1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,2,0,0,0,0,0,2,0,0,0,0,1],
+  [1,0,1,1,0,1,1,1,2,1,0,1,1,1,1,0,1],
+  [1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+  [1,0,1,0,1,1,2,1,1,1,1,1,2,0,1,0,1],
+  [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+  [1,1,2,0,1,0,1,0,2,0,1,0,1,0,2,1,1],
+  [1,0,0,0,1,0,1,0,1,0,1,0,1,0,0,0,1],
+  [1,0,1,1,1,0,1,0,0,0,1,0,1,1,1,0,1],
+  [1,0,1,0,0,0,1,0,1,0,1,0,0,0,1,0,1],
+  [1,0,1,0,1,1,1,2,1,1,1,1,1,0,1,0,1],
+  [1,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,1],
+  [1,0,1,1,2,0,1,0,1,1,2,0,1,0,1,0,1],
+  [1,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,1],
+  [1,0,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
 ];
-const MZ_SZ=13;
-let g3p={x:1,y:1},g3e={x:11,y:1},g3fast=false,g3smokeTimer=null;
+const MZ_SZ=17;
+// Posiciones donde puede aparecer la estrella (lugares "abiertos")
+const STAR_POSITIONS=[
+  {x:15,y:15},{x:1,y:15},{x:15,y:1},{x:8,y:8},
+  {x:5,y:13},{x:13,y:5},{x:1,y:11},{x:11,y:1},
+];
+// Estado de paredes dinámicas (las marcadas con 2): cada una está visible o no
+let g3dynWalls={};
+let g3p={x:1,y:1},g3e={x:15,y:1},g3fast=false,g3star={x:15,y:15};
+
+// Función auxiliar: ¿la celda es transitable AHORA?
+function celdaLibre(x,y){
+  if(x<0||x>=MZ_SZ||y<0||y>=MZ_SZ) return false;
+  const v = MZ[y][x];
+  if(v===1) return false;
+  if(v===2) return !g3dynWalls[`${x},${y}`]; // pared dinámica solo bloquea si está activa
+  return true;
+}
 
 function bG3(c){
-  g3p={x:1,y:1};g3e={x:11,y:1};g3fast=false;
+  g3p={x:1,y:1};g3e={x:15,y:1};g3fast=false;
+  g3star={x:15,y:15};
+  g3dynWalls={};
   // Campo fullscreen
   const f=document.createElement('div');f.id='g3f';
   f.style.cssText='position:absolute;inset:0;background:#0a0018;overflow:hidden;';
@@ -1024,30 +1075,42 @@ function bG3(c){
 
 function renderMaze3(){
   const f=document.getElementById('g3f');if(!f)return;
-  f.querySelectorAll('.mz3-wall,.mz3-exit,.mz3-player,.mz3-enemy,.mz3-dp').forEach(e=>e.remove());
+  f.querySelectorAll('.mz3-wall,.mz3-exit,.mz3-player,.mz3-enemy,.mz3-dp,.mz3-dwall').forEach(e=>e.remove());
   const fw=f.offsetWidth||1400;
   const fh=(f.offsetHeight||700)-130;
   const CS=Math.floor(Math.min(fw*0.88,fh)/MZ_SZ);
   const ox=Math.floor((fw-CS*MZ_SZ)/2);
   const oy=20;
+  // Paredes fijas
   MZ.forEach((row,y)=>row.forEach((v,x)=>{
     if(v===1){
       const w=document.createElement('div');w.className='mz3-wall';
       w.style.cssText=`position:absolute;background:#8e44ad;opacity:.8;left:${ox+x*CS}px;top:${oy+y*CS}px;width:${CS}px;height:${CS}px;`;
       f.appendChild(w);
+    } else if(v===2){
+      // Pared dinámica - se renderiza pero con id para poder ocultar/mostrar
+      const w=document.createElement('div');w.className='mz3-dwall';
+      w.id=`dw_${x}_${y}`;
+      const visible = g3dynWalls[`${x},${y}`];
+      w.style.cssText=`position:absolute;background:#c0392b;opacity:${visible?'.85':'0'};left:${ox+x*CS}px;top:${oy+y*CS}px;width:${CS}px;height:${CS}px;transition:opacity .5s;box-shadow:0 0 15px #c0392b;border:2px solid #ff6347;box-sizing:border-box;`;
+      f.appendChild(w);
     }
   }));
-  const ex=document.createElement('div');ex.className='mz3-exit';
-  ex.style.cssText=`position:absolute;left:${ox+11*CS}px;top:${oy+11*CS}px;width:${CS}px;height:${CS}px;display:flex;align-items:center;justify-content:center;font-size:${Math.max(CS*.6,14)}px;z-index:5;`;
+  // Estrella (objetivo)
+  const ex=document.createElement('div');ex.className='mz3-exit';ex.id='g3star';
+  ex.style.cssText=`position:absolute;left:${ox+g3star.x*CS}px;top:${oy+g3star.y*CS}px;width:${CS}px;height:${CS}px;display:flex;align-items:center;justify-content:center;font-size:${Math.max(CS*.6,14)}px;z-index:5;transition:all .4s;animation:starPulse 1s infinite;`;
   ex.textContent='⭐';f.appendChild(ex);
+  // CatNap
   const en=document.createElement('div');en.className='mz3-enemy';en.id='g3en';
   en.style.cssText=`position:absolute;left:${ox+g3e.x*CS}px;top:${oy+g3e.y*CS}px;width:${CS}px;height:${CS}px;border-radius:50%;overflow:hidden;z-index:10;transition:all .4s;`;
   en.innerHTML=`<img src="${CN_IMG_NORMAL}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.textContent='😾'">`;
   f.appendChild(en);
+  // Jugador
   const pl=document.createElement('div');pl.className='mz3-player';pl.id='g3pl';
   pl.style.cssText=`position:absolute;left:${ox+g3p.x*CS}px;top:${oy+g3p.y*CS}px;width:${CS}px;height:${CS}px;border-radius:50%;overflow:hidden;z-index:10;transition:all .12s;background:#f39c12;display:flex;align-items:center;justify-content:center;`;
   pl.innerHTML=`<img src="https://em-content.zobj.net/source/google/387/boy_1f466.png" style="width:90%;height:90%;object-fit:contain;" onerror="this.style.display='none'">`;
   f.appendChild(pl);
+  // D-pad
   const dp=document.createElement('div');dp.className='mz3-dp dpad';
   dp.style.cssText='position:absolute;bottom:.75rem;left:50%;transform:translateX(-50%);z-index:30;display:grid;grid-template-columns:repeat(3,60px);grid-template-rows:repeat(2,60px);gap:5px;';
   dp.innerHTML=`<div class="de"></div><button class="db" onclick="m3(0,-1)">▲</button><div class="de"></div>
@@ -1055,24 +1118,28 @@ function renderMaze3(){
     <div class="de"></div><button class="db" onclick="m3(0,1)">▼</button><div class="de"></div>`;
   f.appendChild(dp);
   f.dataset.cs=CS;f.dataset.ox=ox;f.dataset.oy=oy;
+  // Inyectar animación de la estrella (solo una vez)
+  if(!document.getElementById('g3-star-anim')){
+    const s=document.createElement('style');s.id='g3-star-anim';
+    s.textContent='@keyframes starPulse{0%,100%{transform:scale(1);filter:drop-shadow(0 0 8px gold)}50%{transform:scale(1.25);filter:drop-shadow(0 0 20px gold)}}';
+    document.head.appendChild(s);
+  }
 }
 
 const CN_IMG_NORMAL='https://preview.redd.it/catnap-from-poppy-playtime-chapter-3-deep-sleep-is-my-all-v0-x1x2eoq0n2ke1.png?auto=webp&s=7e256dbf509373ad7e8f42b460f156dbd61ac3d8';
 const CN_IMG_GAS='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQCj903UmnROwkmK7nqBGgu04LBouhyw7xGJQ&s';
 
 function sG3(){
-  // Ciclo exacto:
-  // Normal 5s → Gas 5s → Normal 10s → Gas 5s → Normal 10s → Gas 5s → (repite Normal 10s ↔ Gas 5s)
+  // Ciclo: Normal 5s → Gas 5s → Normal 8s → Gas 5s → repite
   const ciclo=[
     {humo:false, dur:5000},
     {humo:true,  dur:5000},
-    {humo:false, dur:10000},
+    {humo:false, dur:8000},
     {humo:true,  dur:5000},
-    // a partir de aquí repite los últimos dos
   ];
   let fase=0;
   function iniciarFase(){
-    const f=fase<ciclo.length ? ciclo[fase] : (fase%2===0 ? {humo:false,dur:10000} : {humo:true,dur:5000});
+    const f=fase<ciclo.length ? ciclo[fase] : (fase%2===0 ? {humo:false,dur:8000} : {humo:true,dur:5000});
     g3fast=f.humo;
     const smoke=document.getElementById('g3smoke');
     const modeEl=document.getElementById('g3mode');
@@ -1091,6 +1158,8 @@ function sG3(){
   }
   iniciarFase();
 
+  // *** ENEMIGO MÁS RÁPIDO ***
+  // Normal: 900ms (antes 1400ms)  — Gas rojo: 150ms (antes 280ms, casi el doble de rápido)
   function moverEnemigo(){
     if(!document.getElementById('g3f'))return;
     const f=document.getElementById('g3f');
@@ -1098,7 +1167,7 @@ function sG3(){
     const ox=parseInt(f.dataset.ox||0);
     const oy=parseInt(f.dataset.oy||20);
     const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
-    const v=dirs.filter(([dx,dy])=>{const nx=g3e.x+dx,ny=g3e.y+dy;return nx>=0&&nx<MZ_SZ&&ny>=0&&ny<MZ_SZ&&MZ[ny][nx]===0;});
+    const v=dirs.filter(([dx,dy])=>celdaLibre(g3e.x+dx, g3e.y+dy));
     if(v.length){
       const[dx,dy]=v[Math.floor(Math.random()*v.length)];
       g3e={x:g3e.x+dx,y:g3e.y+dy};
@@ -1106,15 +1175,54 @@ function sG3(){
       if(e){e.style.left=ox+g3e.x*CS+'px';e.style.top=oy+g3e.y*CS+'px';}
       if(g3e.x===g3p.x&&g3e.y===g3p.y){clrT();showLose('¡CatNap te atrapó!');}
     }
-    // Normal: 1400ms — Gas rojo: 5x más rápido = 280ms
-    st(moverEnemigo, g3fast?280:1400);
+    st(moverEnemigo, g3fast?150:900);
   }
-  st(moverEnemigo,1400);
+  st(moverEnemigo,900);
+
+  // *** NUEVO: La estrella se mueve cada 8 segundos ***
+  function moverEstrella(){
+    if(!document.getElementById('g3f'))return;
+    // Elegir nueva posición distinta a la actual y diferente del jugador
+    let nuevasOpts = STAR_POSITIONS.filter(p=>!(p.x===g3star.x&&p.y===g3star.y) && !(p.x===g3p.x&&p.y===g3p.y));
+    if(nuevasOpts.length){
+      g3star = nuevasOpts[Math.floor(Math.random()*nuevasOpts.length)];
+      const f=document.getElementById('g3f');
+      const CS=parseInt(f.dataset.cs||60);
+      const ox=parseInt(f.dataset.ox||0);
+      const oy=parseInt(f.dataset.oy||20);
+      const s=document.getElementById('g3star');
+      if(s){s.style.left=ox+g3star.x*CS+'px';s.style.top=oy+g3star.y*CS+'px';}
+      toast('⭐ ¡La estrella se movió!');
+    }
+    st(moverEstrella, 8000);
+  }
+  st(moverEstrella, 8000);
+
+  // *** NUEVO: Las paredes dinámicas cambian cada 6 segundos ***
+  function cambiarParedes(){
+    if(!document.getElementById('g3f'))return;
+    // Encontrar todas las paredes tipo 2 en el laberinto
+    const paredesDinamicas = [];
+    MZ.forEach((row,y)=>row.forEach((v,x)=>{ if(v===2) paredesDinamicas.push({x,y}); }));
+    // Para cada una, decidir aleatoriamente si activarla o no (50/50)
+    paredesDinamicas.forEach(({x,y})=>{
+      // No bloquear si el jugador o catnap están encima
+      if((g3p.x===x&&g3p.y===y) || (g3e.x===x&&g3e.y===y)) {
+        g3dynWalls[`${x},${y}`] = false;
+      } else {
+        g3dynWalls[`${x},${y}`] = Math.random()<0.5;
+      }
+      const w=document.getElementById(`dw_${x}_${y}`);
+      if(w) w.style.opacity = g3dynWalls[`${x},${y}`] ? '.85' : '0';
+    });
+    st(cambiarParedes, 6000);
+  }
+  st(cambiarParedes, 6000);
 }
 
 function m3(dx,dy){
   const nx=g3p.x+dx,ny=g3p.y+dy;
-  if(ny<0||ny>=MZ_SZ||nx<0||nx>=MZ_SZ||MZ[ny][nx]===1)return;
+  if(!celdaLibre(nx,ny)) return;
   g3p={x:nx,y:ny};
   const f=document.getElementById('g3f');if(!f)return;
   const CS=parseInt(f.dataset.cs||64);
@@ -1122,10 +1230,10 @@ function m3(dx,dy){
   const oy=parseInt(f.dataset.oy||0);
   const p=document.getElementById('g3pl');
   if(p){p.style.left=ox+nx*CS+'px';p.style.top=oy+ny*CS+'px';}
-  if(nx===11&&ny===11){clrT();showWin();return;}
+  // *** Comparar con posición DINÁMICA de la estrella ***
+  if(nx===g3star.x&&ny===g3star.y){clrT();showWin();return;}
   if(nx===g3e.x&&ny===g3e.y){clrT();showLose('¡CatNap te atrapó!');}
 }
-
 
 // ===== GAME 4: DOEY - 3 Puzzles + Videos =====
 const DOEY_IMGS=[
@@ -1249,56 +1357,188 @@ function doeyPuzzleComplete(){
 }
 
 // ===== GAME 5: DOCTOR - Terminal =====
-const QQ=[
+// *** BANCO GIGANTE DE PREGUNTAS — 50+ mezcladas (trivia + matemáticas + lógica + adivinanzas) ***
+const QQ_POOL=[
+  // === TRIVIA GENERAL ===
   {q:'¿Cuál es el animal más grande del mundo?',opts:['Elefante africano','Tiburón ballena','Ballena azul','Jirafa'],ok:2},
+  {q:'¿Cuál es el planeta más grande del sistema solar?',opts:['Saturno','Júpiter','Neptuno','Urano'],ok:1},
+  {q:'¿Cuántos continentes hay en la Tierra?',opts:['5','6','7','8'],ok:2},
+  {q:'¿En qué país se inventó la pizza?',opts:['España','Italia','Grecia','Francia'],ok:1},
+  {q:'¿Cuál es el océano más grande?',opts:['Atlántico','Índico','Pacífico','Ártico'],ok:2},
+  {q:'¿Qué animal pone los huevos más grandes?',opts:['Avestruz','Tiburón','Pingüino','Águila'],ok:0},
+  {q:'¿Cuál es el metal más caro?',opts:['Oro','Plata','Rodio','Platino'],ok:2},
+  {q:'¿Cuántos huesos tiene el cuerpo humano adulto?',opts:['186','206','226','246'],ok:1},
+  {q:'¿Cuál es el río más largo del mundo?',opts:['Amazonas','Nilo','Misisipi','Yangtsé'],ok:1},
+  {q:'¿Qué color resulta de mezclar azul y amarillo?',opts:['Rojo','Verde','Morado','Naranja'],ok:1},
+  {q:'¿Cuál es el desierto más grande del mundo?',opts:['Sahara','Gobi','Antártico','Atacama'],ok:2},
+  {q:'¿Cuántos minutos tiene una hora?',opts:['30','45','60','90'],ok:2},
+  {q:'¿Qué animal es conocido como el rey de la selva?',opts:['Tigre','León','Elefante','Pantera'],ok:1},
+
+  // === POPPY PLAYTIME / FNAF ===
   {q:'¿Cómo se llama el traje de resorte donde queda atrapado William Afton en FNAF?',opts:['Golden Freddy','Fredbear','Spring Trap','Nightmare'],ok:2},
-  {q:'¿Cuántos lados tiene un triángulo?',opts:['2','3','4','5'],ok:1},
   {q:'¿De qué color es el gas que libera CatNap para dormir a sus víctimas?',opts:['Azul','Verde','Morado','Rojo'],ok:3},
+  {q:'¿Cuál es el primer juguete que aparece en Poppy Playtime?',opts:['Huggy Wuggy','Mommy Long Legs','CatNap','Poppy'],ok:0},
+  {q:'¿En qué fábrica trabajaba el protagonista de Poppy Playtime?',opts:['Toy Co.','Playtime Co.','Fun Time','Smiling Critters'],ok:1},
+  {q:'¿Cuál es el animatrónico principal en FNAF 1?',opts:['Foxy','Bonnie','Freddy','Chica'],ok:2},
+  {q:'¿Quién es el dueño de Mommy Long Legs?',opts:['Bunzo','Poppy','Huggy','Bron'],ok:1},
+
+  // === CHUYMINE / PERSONAL ===
   {q:'¿Cómo se llama el libro que publicó Chuymine?',opts:['Pixel','El Avatar','Multiverso','Gamer'],ok:2},
+
+  // === MATEMÁTICAS RÁPIDAS ===
+  {q:'¿Cuántos lados tiene un triángulo?',opts:['2','3','4','5'],ok:1},
+  {q:'¿Cuánto es 7 × 8?',opts:['54','56','58','64'],ok:1},
+  {q:'¿Cuánto es 144 ÷ 12?',opts:['10','11','12','13'],ok:2},
+  {q:'¿Cuánto es 15 + 27?',opts:['41','42','43','52'],ok:1},
+  {q:'¿Cuánto es la mitad de 86?',opts:['41','42','43','44'],ok:2},
+  {q:'¿Cuántos lados tiene un hexágono?',opts:['5','6','7','8'],ok:1},
+  {q:'¿Cuál es el resultado de 9 × 9?',opts:['72','81','89','99'],ok:1},
+  {q:'¿Cuánto es 100 - 37?',opts:['53','63','73','67'],ok:1},
+  {q:'¿Cuál número sigue: 2, 4, 8, 16, ...?',opts:['18','24','30','32'],ok:3},
+  {q:'¿Cuántos minutos hay en 3 horas?',opts:['120','150','180','240'],ok:2},
+  {q:'¿Cuántas decenas hay en 250?',opts:['2','25','250','2500'],ok:1},
+
+  // === LÓGICA Y ADIVINANZAS ===
+  {q:'Soy alto cuando soy joven y bajo cuando soy viejo. ¿Qué soy?',opts:['Un árbol','Una vela','Una persona','Una montaña'],ok:1},
+  {q:'¿Qué tiene cuello pero no cabeza?',opts:['Una camisa','Una botella','Una serpiente','Un puente'],ok:1},
+  {q:'¿Qué cosa siempre va hacia adelante pero nunca regresa?',opts:['El reloj','El tiempo','Una flecha','El sol'],ok:1},
+  {q:'¿Qué se moja mientras seca?',opts:['Una toalla','El sol','La lluvia','El viento'],ok:0},
+  {q:'¿Qué tiene dientes pero no muerde?',opts:['Un peine','Un perro','Un tiburón','Un león'],ok:0},
+  {q:'Estoy lleno de agujeros pero retengo el agua. ¿Qué soy?',opts:['Una taza','Una esponja','Un balde','Un colador'],ok:1},
+  {q:'¿Qué tiene patas pero no camina?',opts:['Una mesa','Un perro','Un caballo','Una persona'],ok:0},
+  {q:'Si dos personas comparten 12 manzanas en partes iguales, ¿cuántas le tocan a cada una?',opts:['4','5','6','8'],ok:2},
+  {q:'¿Qué animal puede saltar más alto que una casa?',opts:['Un canguro','Cualquiera, las casas no saltan','Una rana','Un león'],ok:1},
+  {q:'¿Cuál pesa más: 1 kg de plumas o 1 kg de plomo?',opts:['Las plumas','El plomo','Pesan lo mismo','Depende del clima'],ok:2},
+
+  // === CIENCIA / NATURALEZA ===
+  {q:'¿Qué planeta es conocido como el "planeta rojo"?',opts:['Venus','Marte','Júpiter','Mercurio'],ok:1},
+  {q:'¿Cuál es el órgano más grande del cuerpo humano?',opts:['Hígado','Cerebro','Piel','Pulmones'],ok:2},
+  {q:'¿Qué gas respiramos para vivir?',opts:['Hidrógeno','Oxígeno','Helio','Dióxido de carbono'],ok:1},
+  {q:'¿Cuántos colores tiene el arcoíris?',opts:['5','6','7','8'],ok:2},
+  {q:'¿Cuál es el insecto más laborioso?',opts:['Mariposa','Abeja','Hormiga','Escarabajo'],ok:2},
+  {q:'¿Qué dinosaurio tenía 3 cuernos?',opts:['T-Rex','Velociraptor','Triceratops','Stegosaurus'],ok:2},
+  {q:'¿De qué se alimentan principalmente las jirafas?',opts:['Carne','Hojas de árboles','Insectos','Pescado'],ok:1},
+  {q:'¿Qué órgano bombea sangre?',opts:['Hígado','Pulmón','Corazón','Riñón'],ok:2},
+
+  // === GEOGRAFÍA / PAÍSES ===
+  {q:'¿Cuál es la capital de México?',opts:['Guadalajara','Monterrey','CDMX','Querétaro'],ok:2},
+  {q:'¿En qué continente está Egipto?',opts:['Asia','África','Europa','Oceanía'],ok:1},
+  {q:'¿Qué país tiene forma de bota?',opts:['España','Italia','Grecia','Portugal'],ok:1},
+  {q:'¿Cuál es el país más grande del mundo por superficie?',opts:['China','EUA','Rusia','Canadá'],ok:2},
 ];
-let g5cur=0,g5ans=false;
+
+let g5cur=0,g5ans=false,g5questions=[],g5timer=null,g5timeLeft=0;
+const QQ_POR_PARTIDA = 5; // muestra 5 al azar
+const G5_TIEMPO_INICIAL = 15; // 15s primera, baja 1.5s por cada pregunta
+
 function bG5(c){
   g5cur=0;g5ans=false;
+  // *** Selección aleatoria: tomar QQ_POR_PARTIDA preguntas distintas del banco ***
+  g5questions = [...QQ_POOL].sort(()=>Math.random()-.5).slice(0, QQ_POR_PARTIDA);
   const f=document.createElement('div');f.id='g5f';
-  f.style.cssText='position:absolute;inset:0;background:#000d00;display:flex;align-items:center;justify-content:center;overflow:hidden;';
+  f.style.cssText='position:absolute;inset:0;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;';
+
+  // *** ANIMACIÓN MÁS TERRORÍFICA: niebla roja pulsante de fondo permanente ***
+  const fog=document.createElement('div');fog.id='g5fog';
+  fog.style.cssText='position:absolute;inset:0;background:radial-gradient(ellipse at 50% 100%,rgba(120,0,0,.45) 0%,rgba(20,0,0,.85) 70%,#000 100%);animation:g5fogPulse 4s ease-in-out infinite;pointer-events:none;z-index:0;';
+  f.appendChild(fog);
+
+  // Imagen del Doctor de fondo, distorsionada con glitch
+  const drBg=document.createElement('img');drBg.id='g5drbg';
+  drBg.src='https://preview.redd.it/the-doctor-harley-sawyer-from-poppy-playtime-chapter-4-v0-zk1vobuohxge1.jpg?width=640&crop=smart&auto=webp&s=7f3efd90ac59be160ea5e060714c801913f2e3ea';
+  drBg.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.18;mix-blend-mode:screen;filter:hue-rotate(330deg) contrast(1.4);animation:g5glitch 0.15s infinite;z-index:1;pointer-events:none;';
+  drBg.onerror=()=>drBg.style.display='none';
+  f.appendChild(drBg);
+
+  // Líneas de scan (efecto CRT terrorífico)
+  const scan=document.createElement('div');scan.id='g5scan';
+  scan.style.cssText='position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(255,0,0,.04) 2px,rgba(255,0,0,.04) 4px);pointer-events:none;z-index:2;animation:g5scanMove 8s linear infinite;';
+  f.appendChild(scan);
+
+  // Flash de "INCORRECTO" (mucho más intenso)
   const flash=document.createElement('div');flash.id='g5flash';
   flash.style.cssText='position:absolute;inset:0;z-index:50;display:none;align-items:center;justify-content:center;flex-direction:column;';
-  flash.innerHTML=`<img src="https://static.wikia.nocookie.net/pplaytime/images/0/09/DoctorTakeover-Thumbnail.jpg/revision/latest/thumbnail/width/360/height/360?cb=20250614183653" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">
-    <div style="position:relative;z-index:2;font-family:var(--fhud);font-size:6rem;color:#ff0000;text-shadow:0 0 40px #ff0000,0 0 80px #ff0000;letter-spacing:8px;animation:blink .2s infinite;">INCORRECTO</div>`;
+  flash.innerHTML=`<img src="https://static.wikia.nocookie.net/pplaytime/images/0/09/DoctorTakeover-Thumbnail.jpg/revision/latest/thumbnail/width/360/height/360?cb=20250614183653" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;filter:saturate(2) brightness(1.3);">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse,transparent 30%,#a00 100%);mix-blend-mode:multiply;"></div>
+    <div style="position:relative;z-index:2;font-family:var(--fhud);font-size:7rem;color:#ff0000;text-shadow:0 0 50px #ff0000,0 0 100px #ff0000,0 0 150px #fff;letter-spacing:10px;animation:g5shake .08s infinite;">INCORRECTO</div>`;
   f.appendChild(flash);
+
   const term=document.createElement('div');term.id='g5term';
-  term.style.cssText='width:min(900px,88%);background:#000d00;border:2px solid #27ae60;border-radius:8px;padding:2rem;font-family:var(--fmono);box-shadow:0 0 30px rgba(39,174,96,.3);position:relative;z-index:1;';
+  term.style.cssText='width:min(900px,88%);background:rgba(10,0,0,.92);border:2px solid #c0392b;border-radius:8px;padding:2rem;font-family:var(--fmono);box-shadow:0 0 40px rgba(192,57,43,.6),inset 0 0 30px rgba(192,57,43,.15);position:relative;z-index:5;';
   f.appendChild(term);
   c.appendChild(f);
-  // Delay para asegurar que el DOM esté listo
+
+  // Inyectar estilos para las animaciones (solo una vez)
+  if(!document.getElementById('g5-anim')){
+    const s=document.createElement('style');s.id='g5-anim';
+    s.textContent=`
+      @keyframes g5fogPulse{0%,100%{opacity:.7}50%{opacity:1}}
+      @keyframes g5glitch{0%{transform:translate(0,0)}25%{transform:translate(2px,-1px)}50%{transform:translate(-2px,1px)}75%{transform:translate(1px,2px)}100%{transform:translate(0,0)}}
+      @keyframes g5scanMove{0%{background-position:0 0}100%{background-position:0 100px}}
+      @keyframes g5shake{0%{transform:translate(0,0)}25%{transform:translate(-8px,3px)}50%{transform:translate(7px,-4px)}75%{transform:translate(-5px,2px)}100%{transform:translate(0,0)}}
+      @keyframes g5timerPulse{0%,100%{color:#ff4444}50%{color:#ff0000;text-shadow:0 0 15px #ff0000}}
+    `;
+    document.head.appendChild(s);
+  }
   st(()=>rTerm(),100);
 }
 function sG5(){}
+
 function rTerm(){
   const f=document.getElementById('g5term');if(!f)return;
-  const q=QQ[g5cur];
-  const dots=QQ.map((_,i)=>`<div class="t-dot ${i<g5cur?'done':i===g5cur?'cur':''}"></div>`).join('');
+  const q=g5questions[g5cur];
+  const dots=g5questions.map((_,i)=>`<div class="t-dot ${i<g5cur?'done':i===g5cur?'cur':''}"></div>`).join('');
+  // *** Tiempo decreciente: 15s, 13.5s, 12s, 10.5s, 9s ***
+  g5timeLeft = Math.max(8, G5_TIEMPO_INICIAL - g5cur*1.5);
+
   f.innerHTML=`
-    <img src="https://images.steamusercontent.com/ugc/20933883111186356/AC431DA549C2FA3B679A26EB4E0340E9146623D9/?imw=637&imh=358&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true" style="width:100%;max-height:200px;object-fit:cover;border-radius:4px;margin-bottom:1rem;opacity:.75;" onerror="this.style.display='none'">
     <div class="tl dim">PLAYTIME CO. — SECURITY TERMINAL v2.4</div>
     <div class="tl dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
-    <div class="tl">ACCESO DENEGADO. Demuestra tu inteligencia.</div>
+    <div class="tl" style="color:#ff4444">⚠ ACCESO DENEGADO. Demuestra tu inteligencia.</div>
     <div class="t-dots" style="margin:.6rem 0;">${dots}</div>
-    <div class="tl dim">Pregunta ${g5cur+1} de ${QQ.length}:</div>
-    <div class="tl q" style="font-size:1.1rem;margin:.75rem 0;">> ${q.q}</div>
-    <div class="t-opts">${q.opts.map((o,i)=>`<button class="t-btn" style="font-size:1rem;padding:.7rem 1rem;" onclick="ansQ(${i})">[${i+1}] ${o}</button>`).join('')}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:.5rem 0;">
+      <div class="tl dim">Pregunta ${g5cur+1} de ${g5questions.length}:</div>
+      <div id="g5time" style="font-family:var(--fhud);font-size:1.4rem;color:#ff4444;animation:g5timerPulse .8s infinite;letter-spacing:2px;">${Math.ceil(g5timeLeft)}s</div>
+    </div>
+    <div class="tl q" style="font-size:1.1rem;margin:.75rem 0;color:#ff8080;">> ${q.q}</div>
+    <div class="t-opts">${q.opts.map((o,i)=>`<button class="t-btn" style="font-size:1rem;padding:.7rem 1rem;border-color:#600;color:#ff8080" onclick="ansQ(${i})">[${i+1}] ${o}</button>`).join('')}</div>
     <div class="tl" id="tfb" style="min-height:1.4em;margin-top:.5rem;font-size:.95rem;"></div>`;
+
+  // *** TIMER por pregunta ***
+  if(g5timer)clearInterval(g5timer);
+  g5timer = setInterval(()=>{
+    g5timeLeft -= 0.1;
+    const t=document.getElementById('g5time');
+    if(t) t.textContent = Math.max(0,Math.ceil(g5timeLeft))+'s';
+    if(g5timeLeft<=0){
+      clearInterval(g5timer);
+      if(!g5ans){
+        g5ans=true;
+        // Tiempo agotado = como respuesta incorrecta
+        const fb=document.getElementById('tfb');
+        if(fb){fb.textContent='> ⏱ TIEMPO AGOTADO. Alerta de seguridad.';fb.style.color='var(--red)';}
+        const fl=document.getElementById('g5flash');
+        if(fl){fl.style.display='flex';st(()=>{fl.style.display='none';},700);}
+        st(()=>{
+          g5ans=false;
+          if(S.lives>1){loseLife('Tiempo agotado');st(()=>rTerm(),400);}
+          else{showLose('El Doctor bloqueó el sistema.');}
+        },900);
+      }
+    }
+  },100);
 }
 function ansQ(idx){
   if(g5ans)return;g5ans=true;
-  const q=QQ[g5cur];
+  if(g5timer)clearInterval(g5timer);
+  const q=g5questions[g5cur];
   const btns=document.querySelectorAll('#g5term .t-btn');
   const fb=document.getElementById('tfb');
   if(idx===q.ok){
     if(btns[idx])btns[idx].classList.add('ok');
     if(fb){fb.textContent='> ✓ CORRECTO. Capa de seguridad desactivada.';fb.style.color='#00ff41';}
     g5cur++;
-    if(g5cur>=QQ.length){st(()=>showWin(),800);}
+    if(g5cur>=g5questions.length){st(()=>showWin(),800);}
     else{st(()=>{g5ans=false;rTerm();},900);}
   }else{
     if(btns[idx])btns[idx].classList.add('bad');
@@ -1314,14 +1554,22 @@ function ansQ(idx){
 }
 
 // ===== GAME 6: SIMON SAYS - Sello =====
+// *** AMPLIADO: ahora hay 9 imágenes en el panel (antes 5) ***
+// La secuencia sigue siendo de 5, pero hay más distractores en pantalla
 const SY_POOL=[
   'https://i.pinimg.com/564x/15/f2/f1/15f2f1b33ff45abfa88b2e45da167d34.jpg',
   'https://i.pinimg.com/originals/9a/a2/11/9aa2112b7dfbb22e2e851b96745e5ed6.png',
   'https://i.redd.it/041znvbs9fi61.jpg',
   'https://i.pinimg.com/736x/44/e3/13/44e3139d227eee14834b7f1a9b64ddec.jpg',
   'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSbPOTRrHc4oo7Ix1bkhxzKM-735x9QfJl3QQ&s',
+  // 4 imágenes nuevas para subir a 9 botones (puedes reemplazar las URLs si quieres otras)
+  'https://static.wikia.nocookie.net/fivenightsatfreddys/images/4/4f/Springtrap_Stare.png',
+  'https://static.wikia.nocookie.net/fivenightsatfreddys/images/9/9c/Springtrap_jumpscare.png',
+  'https://i.pinimg.com/originals/2e/16/a1/2e16a1b2db35c9f9b4e89d3a9a2f7c8a.jpg',
+  'https://i.pinimg.com/originals/54/8e/19/548e19c3f2a4e0d21e2c7d5a8b9c1d2e.jpg',
 ];
 let g6seq=[],g6inp=[],g6phase=0,g6showing=false;
+const G6_LONGITUD = 5; // longitud final de la secuencia
 
 function bG6(c){
   g6seq=[];g6inp=[];g6phase=0;g6showing=false;
@@ -1339,13 +1587,14 @@ function bG6(c){
   f.appendChild(errFlash);
   const wrap=document.createElement('div');
   wrap.style.cssText='position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:1.5rem;width:100%;';
+  // *** CAMBIO: botones más pequeños y en grid 3x3 para que quepan los 9 ***
   wrap.innerHTML=`
     <div style="font-family:var(--fhud);font-size:1.6rem;color:#c0392b;letter-spacing:4px;text-shadow:0 0 20px #c0392b;">⚡ SELLO DE SPRING TRAP ⚡</div>
     <div id="g6lbl" style="font-family:var(--fmono);font-size:1rem;color:#e74c3c;letter-spacing:2px;">Memoriza la secuencia...</div>
     <div id="g6flash-panel" style="min-height:160px;display:flex;gap:1rem;align-items:center;justify-content:center;"></div>
-    <div id="g6ir" style="display:flex;gap:1rem;min-height:90px;align-items:center;justify-content:center;"></div>
-    <div id="g6bg" style="display:flex;gap:1.2rem;flex-wrap:wrap;justify-content:center;">
-      ${SY_POOL.map((src,i)=>`<button onclick="tapSimon(${i})" style="width:120px;height:120px;border-radius:50%;overflow:hidden;border:3px solid #c0392b;cursor:pointer;background:#000;padding:0;transition:transform .15s;box-shadow:0 0 15px rgba(192,57,43,.5);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"><img src="${src}" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" onerror="this.style.display='none'"></button>`).join('')}
+    <div id="g6ir" style="display:flex;gap:1rem;min-height:80px;align-items:center;justify-content:center;flex-wrap:wrap;"></div>
+    <div id="g6bg" style="display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;justify-content:center;max-width:380px;">
+      ${SY_POOL.map((src,i)=>`<button onclick="tapSimon(${i})" style="width:110px;height:110px;border-radius:50%;overflow:hidden;border:3px solid #c0392b;cursor:pointer;background:#000;padding:0;transition:transform .15s;box-shadow:0 0 12px rgba(192,57,43,.5);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"><img src="${src}" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" onerror="this.style.display='none'"></button>`).join('')}
     </div>
     <button onclick="clearSimon()" style="font-family:var(--fmono);font-size:.85rem;color:#c0392b;background:rgba(192,57,43,.1);border:1px solid #c0392b;border-radius:4px;padding:.5rem 1.5rem;cursor:pointer;letter-spacing:2px;">↩ BORRAR</button>`;
   f.appendChild(wrap);
@@ -1353,17 +1602,17 @@ function bG6(c){
 }
 
 function sG6(){
-  // Generar secuencia de 5 sin repetir: shuffle de índices 0-4
-  const shuffled=[0,1,2,3,4].sort(()=>Math.random()-.5);
+  // *** CAMBIO: la secuencia ahora puede usar las 9 imágenes (antes solo 5) ***
+  // Generar G6_LONGITUD índices distintos del pool ampliado
+  const indices = Array.from({length: SY_POOL.length}, (_,i)=>i);
+  const shuffled = indices.sort(()=>Math.random()-.5).slice(0, G6_LONGITUD);
   g6seq=[];g6inp=[];g6phase=0;
-  // Guardar la secuencia completa shuffled para ir revelándola por rondas
   window._g6full=shuffled;
   nextSimonRound();
 }
 
 function nextSimonRound(){
   g6showing=true;
-  // Agregar siguiente de la secuencia sin repetir
   if(g6seq.length===g6phase){
     g6seq.push(window._g6full[g6phase]);
     g6phase++;
@@ -1372,7 +1621,7 @@ function nextSimonRound(){
   const lbl=document.getElementById('g6lbl');
   const fp=document.getElementById('g6flash-panel');
   const ir=document.getElementById('g6ir');
-  if(lbl)lbl.textContent=`Ronda ${g6seq.length} de 5 — ¡MEMORIZA!`;
+  if(lbl)lbl.textContent=`Ronda ${g6seq.length} de ${G6_LONGITUD} — ¡MEMORIZA!`;
   if(fp)fp.innerHTML='';
   if(ir)ir.innerHTML='';
   document.querySelectorAll('#g6bg button').forEach(b=>b.style.pointerEvents='none');
@@ -1384,7 +1633,7 @@ function nextSimonRound(){
       ir.innerHTML='';
       g6seq.forEach((_,i)=>{
         const sl=document.createElement('div');sl.id='g6s'+i;
-        sl.style.cssText='width:80px;height:80px;border-radius:50%;border:2px solid #555;background:#111;overflow:hidden;';
+        sl.style.cssText='width:70px;height:70px;border-radius:50%;border:2px solid #555;background:#111;overflow:hidden;';
         ir.appendChild(sl);
       });
     }
@@ -1394,7 +1643,7 @@ function nextSimonRound(){
 
 function mostrarSecuencia6(onDone){
   const fp=document.getElementById('g6flash-panel');
-  // Cada imagen: 2s visible, 400ms pausa → total 2400ms por imagen
+  // Cada imagen: 2s visible, 400ms pausa
   g6seq.forEach((idx,i)=>{
     st(()=>{
       if(fp)fp.innerHTML=`<div style="width:160px;height:160px;border-radius:50%;overflow:hidden;border:4px solid #c0392b;box-shadow:0 0 30px #c0392b;"><img src="${SY_POOL[idx]}" style="width:100%;height:100%;object-fit:cover;"></div>`;
@@ -1427,16 +1676,15 @@ function tapSimon(idx){
       mostrarSecuencia6(()=>{
         g6showing=false;if(fp)fp.innerHTML='';
         if(lbl)lbl.textContent=`Repite la secuencia (${g6seq.length} imagen${g6seq.length>1?'es':''})`;
-        if(ir){ir.innerHTML='';g6seq.forEach((_,i)=>{const sl=document.createElement('div');sl.id='g6s'+i;sl.style.cssText='width:80px;height:80px;border-radius:50%;border:2px solid #555;background:#111;overflow:hidden;';ir.appendChild(sl);});}
+        if(ir){ir.innerHTML='';g6seq.forEach((_,i)=>{const sl=document.createElement('div');sl.id='g6s'+i;sl.style.cssText='width:70px;height:70px;border-radius:50%;border:2px solid #555;background:#111;overflow:hidden;';ir.appendChild(sl);});}
         document.querySelectorAll('#g6bg button').forEach(b=>b.style.pointerEvents='');
       });
     },900);
     return;
   }
   if(g6inp.length===g6seq.length){
-    if(g6seq.length>=5){
+    if(g6seq.length>=G6_LONGITUD){
       clrT();
-      // Video final + pantalla de cierre con botón reset
       st(()=>showFinalEnding(),600);
     } else {
       toast('✅ ¡Correcto! Siguiente ronda...');
