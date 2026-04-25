@@ -42,7 +42,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--fbody);width:100vw
 .lb-co{font-family:var(--fhud);font-size:.8rem;color:var(--muted);letter-spacing:5px;margin-bottom:.75rem;}
 .lb-title{font-family:var(--fhud);font-size:1.8rem;color:var(--glow);text-shadow:0 0 30px var(--glow);margin-bottom:.3rem;line-height:1.2;}
 .lb-sub{font-family:var(--fmono);font-size:.8rem;color:var(--red);letter-spacing:3px;margin-bottom:2rem;animation:blink 1.5s infinite;}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes blink{0%,100%{opacity:1}
+@keyframes charPulse{0%,100%{transform:scale(1);box-shadow:0 0 25px var(--glow)}50%{transform:scale(1.05);box-shadow:0 0 40px var(--glow)}}50%{opacity:.3}}
 .pin-row{display:flex;justify-content:center;gap:.75rem;margin-bottom:1.5rem;}
 .pin-d{width:65px;height:75px;background:#020508;border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:var(--fhud);font-size:2.2rem;color:var(--glow);text-shadow:0 0 15px var(--glow);transition:all .2s;}
 .pin-d.f{border-color:var(--glow);box-shadow:0 0 12px rgba(0,170,255,.3);}
@@ -323,7 +324,9 @@ background:radial-gradient(ellipse at 50% 40%,#0a0a00,#020203);align-items:cente
   <div class="factory-wrap">
     <div class="factory-bg"></div>
     <div class="factory-grid"></div>
-    <div id="factory-floor" style="position:absolute;inset:0;"></div>
+    <div id="factory-floor-outer" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+      <div id="factory-floor" style="position:relative;width:1900px;height:780px;transform-origin:center center;"></div>
+    </div>
   </div>
 </div>
 
@@ -367,8 +370,9 @@ background:radial-gradient(ellipse at 50% 40%,#0a0a00,#020203);align-items:cente
       <div class="g-ov-title" id="gi-title">¿Listo?</div>
       <div class="g-ov-txt" id="gi-txt">Instrucciones</div>
       <!-- Barra de progreso audio -->
-      <div id="gi-audio-wrap" style="display:none;flex-direction:column;align-items:center;gap:.5rem;margin:.5rem 0;">
-        <div style="font-family:var(--fmono);font-size:.75rem;color:var(--muted);letter-spacing:1px;">🔊 ESCUCHA AL PERSONAJE...</div>
+      <div id="gi-audio-wrap" style="display:none;flex-direction:column;align-items:center;gap:.6rem;margin:.5rem 0;">
+        <img id="gi-char-img" src="" style="display:none;width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid var(--glow);box-shadow:0 0 25px var(--glow);animation:charPulse 1.5s ease-in-out infinite;" onerror="this.style.display='none'">
+        <div style="font-family:var(--fmono);font-size:.75rem;color:var(--muted);letter-spacing:1px;">ESCUCHA AL PERSONAJE...</div>
         <div style="width:260px;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;">
           <div id="gi-audio-bar" style="height:100%;width:0%;background:var(--glow);border-radius:3px;transition:width .3s;"></div>
         </div>
@@ -505,6 +509,16 @@ function skipIntro(){
 let rdAudio=null;
 let rdAudioTimer=null;
 
+// Imágenes reales de los personajes (se muestran cuando suena su audio)
+const RD_CHAR_IMG = {
+  'cap1': 'https://media.vandal.net/i/1280x720/12-2025/9/202512917361592_1.jpg',
+  'cap2': 'https://static0.srcdn.com/wordpress/wp-content/uploads/2022/03/Poppy-Playtime-Mommy-Long-Legs-Chapter-2-Trailer.jpg?w=1200&h=628&fit=crop',
+  'cap3': 'https://cdn-images.dzcdn.net/images/cover/776ef8a7da41aa80558d855e70a5d935/0x1900-000000-80-0-0.jpg',
+  'cap4': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSn0ZWbOk36vQpZ1B0ZgAWCX0d1iQo8pgBlzA&s',
+  'cap5': 'https://poppyplaytime.com/cdn/shop/files/doctor_00_b8898ede-2e9a-4989-b527-97362d475a0a.png?v=1738250259&width=800',
+  'cap6': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR2aA-Mp8SmP_P-P9jZME93skUDp_eo4YpaeQ&s',
+};
+
 function playRdAudio(cap){
   if(rdAudio){rdAudio.pause();rdAudio=null;}
   if(rdAudioTimer){clearInterval(rdAudioTimer);rdAudioTimer=null;}
@@ -515,6 +529,12 @@ function playRdAudio(cap){
   const wrap=document.getElementById('gi-audio-wrap');
   const bar=document.getElementById('gi-audio-bar');
   const btn=document.getElementById('gi-play-btn');
+  // *** MOSTRAR IMAGEN REAL DEL PERSONAJE en lugar de emoji ***
+  const charImg=document.getElementById('gi-char-img');
+  if(charImg && RD_CHAR_IMG[cap]){
+    charImg.src=RD_CHAR_IMG[cap];
+    charImg.style.display='block';
+  }
   if(wrap)wrap.style.display='flex';
   if(btn)btn.style.display='none';
   if(bar)bar.style.width='0%';
@@ -541,6 +561,8 @@ function playRdAudio(cap){
 }
 
 function showPlayBtn(){
+  const charImg=document.getElementById('gi-char-img');
+  if(charImg)charImg.style.display='none';
   const wrap=document.getElementById('gi-audio-wrap');
   const btn=document.getElementById('gi-play-btn');
   if(wrap)wrap.style.display='none';
@@ -672,7 +694,20 @@ function renderMap(){
     ${fdone?'<div class="zcard-done-badge">✓</div>':''}
   </div>`;
   floor.appendChild(fd);
+  // Auto-escalar el mapa al viewport disponible
+  fitMapToScreen();
 }
+
+function fitMapToScreen(){
+  const outer=document.getElementById('factory-floor-outer');
+  const inner=document.getElementById('factory-floor');
+  if(!outer||!inner)return;
+  const ow=outer.clientWidth, oh=outer.clientHeight;
+  const iw=1900, ih=780;
+  const scale=Math.min(ow/iw, oh/ih, 1);
+  inner.style.transform=`scale(${scale})`;
+}
+window.addEventListener('resize', ()=>{ if(typeof fitMapToScreen==='function') fitMapToScreen(); });
 
 function unlockWithAnim(id){
   if(!S.unlocked.includes(id))S.unlocked.push(id);
@@ -936,7 +971,7 @@ function bG2(c){
   di.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .4s;pointer-events:none;z-index:1;';
   f.appendChild(di);
   // Generar primera ronda con 9 hilos
-  generarHilosG2(f, 9);
+  generarHilosG2(f, 12);
   c.appendChild(f);
   c.appendChild(hud);
 }
@@ -952,7 +987,7 @@ function generarHilosG2(f, totalHilos){
   for(let i=mitad;i<totalHilos;i++) arr.push({ok:false});
   const shuffled = arr.sort(()=>Math.random()-.5);
   // Calcular columnas dinámicamente para que quepan bien
-  const cols = totalHilos<=12 ? 4 : (totalHilos<=18 ? 5 : 6);
+  const cols = totalHilos<=12 ? 4 : (totalHilos<=18 ? 6 : (totalHilos<=30 ? 7 : 8));
   const filas = Math.ceil(totalHilos/cols);
   shuffled.forEach((w,i)=>{
     const el=document.createElement('div');el.className='wire';
@@ -960,7 +995,8 @@ function generarHilosG2(f, totalHilos){
     const col=i%cols, row=Math.floor(i/cols);
     const anchoCol = 92/cols;
     const altoFila = 90/filas;
-    el.style.cssText=`background:#e91e8c;left:${4+col*anchoCol}%;top:${5+row*altoFila}%;height:${altoFila*0.7}%;width:60px;border-radius:30px;position:absolute;cursor:pointer;transition:all .2s;z-index:5;box-shadow:0 0 18px currentColor;`;
+    const wireWidth = totalHilos<=18 ? 50 : (totalHilos<=30 ? 38 : 28);
+    el.style.cssText=`background:#e91e8c;left:${4+col*anchoCol}%;top:${5+row*altoFila}%;height:${altoFila*0.7}%;width:${wireWidth}px;border-radius:${wireWidth/2}px;position:absolute;cursor:pointer;transition:all .2s;z-index:5;box-shadow:0 0 18px currentColor;`;
     el.onclick=()=>cutWire2(el,w.ok);
     f.appendChild(el);
   });
@@ -993,9 +1029,9 @@ function cutWire2(el,ok){
     if(di){di.src=M_IMGS[Math.min(g2c-1,M_IMGS.length-1)];di.style.opacity='.5';}
     toast('✂️ ¡Cortado!');
     if(g2c>=G2_META){clrT();showWin();return;}
-    // *** NUEVO: regenerar hilos con MÁS cantidad cada vez ***
-    // Progresión: 9 → 12 → 15 → 18 → 21 → 24
-    const nuevaCantidad = 9 + (g2c * 3);
+    // *** REGENERAR HILOS: ahora con MÁS cantidad y más confusión ***
+    // Progresión: 12 → 18 → 24 → 30 → 36 → 42
+    const nuevaCantidad = 12 + (g2c * 6);
     const f = document.getElementById('g2f');
     if(f) generarHilosG2(f, nuevaCantidad);
   }else{
@@ -1194,9 +1230,9 @@ function sG3(){
       if(s){s.style.left=ox+g3star.x*CS+'px';s.style.top=oy+g3star.y*CS+'px';}
       toast('⭐ ¡La estrella se movió!');
     }
-    st(moverEstrella, 8000);
+    st(moverEstrella, 6000);
   }
-  st(moverEstrella, 8000);
+  st(moverEstrella, 6000);
 
   // *** NUEVO: Las paredes dinámicas cambian cada 6 segundos ***
   function cambiarParedes(){
@@ -1215,9 +1251,9 @@ function sG3(){
       const w=document.getElementById(`dw_${x}_${y}`);
       if(w) w.style.opacity = g3dynWalls[`${x},${y}`] ? '.85' : '0';
     });
-    st(cambiarParedes, 6000);
+    st(cambiarParedes, 3000);
   }
-  st(cambiarParedes, 6000);
+  st(cambiarParedes, 3000);
 }
 
 function m3(dx,dy){
@@ -1278,7 +1314,26 @@ function bG4(c){
   const iframe=document.createElement('iframe');iframe.id='g4vid';
   iframe.style.cssText='width:100%;height:100%;border:none;';
   iframe.allow='autoplay';
-  iframe.src=DOEY_VID_ATACA+'?autoplay=1&loop=1&playlist=CDcg5WK7VkQ&mute=0';
+  // *** ESPERAR a que termine el audio de instrucciones antes de iniciar el video ***
+  // El video arranca MUTED y solo se desmuta cuando termina el audio
+  iframe.src=DOEY_VID_ATACA+'?autoplay=1&loop=1&playlist=CDcg5WK7VkQ&mute=1';
+  // Detectar cuando termina el audio de Doey (rd-audio-cap4) para desmutear
+  st(()=>{
+    const audioEl = document.getElementById('rd-audio-cap4');
+    // Si hay audio reproduciéndose (rdAudio global) lo monitoreamos
+    const checkInterval = setInterval(()=>{
+      if(!rdAudio || rdAudio.ended || rdAudio.paused){
+        clearInterval(checkInterval);
+        // Audio terminó: desmutear video sustituyendo el iframe con mute=0
+        const ifr = document.getElementById('g4vid');
+        if(ifr && ifr.src.includes('mute=1')){
+          ifr.src = ifr.src.replace('mute=1','mute=0');
+        }
+      }
+    }, 500);
+    // Por seguridad, máximo 30 segundos de espera
+    st(()=>clearInterval(checkInterval), 30000);
+  }, 1500);
   vidWrap.appendChild(iframe);
   right.appendChild(vidLabel);right.appendChild(vidWrap);
   f.appendChild(left);f.appendChild(right);
@@ -1345,7 +1400,7 @@ function doeyPuzzleComplete(){
       if(iframe)iframe.src=DOEY_VID_ATACA+'?autoplay=1&loop=1&playlist=CDcg5WK7VkQ';
       g4puzzleIdx++;
       rPZ4();
-    },27000);
+    },32000);
   } else {
     // Puzzle 3 completado — NO cargamos el video en el panel lateral
     // (se duplicaba porque showWin luego abre el mismo video en pantalla completa).
@@ -1427,12 +1482,12 @@ const QQ_POOL=[
   {q:'¿Cuál es el país más grande del mundo por superficie?',opts:['China','EUA','Rusia','Canadá'],ok:2},
 ];
 
-let g5cur=0,g5ans=false,g5questions=[],g5timer=null,g5timeLeft=0;
+let g5cur=0,g5ans=false,g5questions=[],g5vidas=5;
 const QQ_POR_PARTIDA = 5; // muestra 5 al azar
-const G5_TIEMPO_INICIAL = 15; // 15s primera, baja 1.5s por cada pregunta
+const G5_VIDAS_INICIO = 5; // 5 vidas locales (independientes del corazón global)
 
 function bG5(c){
-  g5cur=0;g5ans=false;
+  g5cur=0;g5ans=false;g5vidas=G5_VIDAS_INICIO;
   // *** Selección aleatoria: tomar QQ_POR_PARTIDA preguntas distintas del banco ***
   g5questions = [...QQ_POOL].sort(()=>Math.random()-.5).slice(0, QQ_POR_PARTIDA);
   const f=document.createElement('div');f.id='g5f';
@@ -1491,6 +1546,8 @@ function rTerm(){
   // *** Tiempo decreciente: 15s, 13.5s, 12s, 10.5s, 9s ***
   g5timeLeft = Math.max(8, G5_TIEMPO_INICIAL - g5cur*1.5);
 
+  // Mostrar las 5 vidas como corazones
+  const corazones = Array.from({length:5},(_,i)=>i<g5vidas?'❤':'🖤').join(' ');
   f.innerHTML=`
     <div class="tl dim">PLAYTIME CO. — SECURITY TERMINAL v2.4</div>
     <div class="tl dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
@@ -1498,39 +1555,14 @@ function rTerm(){
     <div class="t-dots" style="margin:.6rem 0;">${dots}</div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin:.5rem 0;">
       <div class="tl dim">Pregunta ${g5cur+1} de ${g5questions.length}:</div>
-      <div id="g5time" style="font-family:var(--fhud);font-size:1.4rem;color:#ff4444;animation:g5timerPulse .8s infinite;letter-spacing:2px;">${Math.ceil(g5timeLeft)}s</div>
+      <div id="g5lives" style="font-family:var(--fhud);font-size:1.2rem;letter-spacing:4px;">${corazones}</div>
     </div>
     <div class="tl q" style="font-size:1.1rem;margin:.75rem 0;color:#ff8080;">> ${q.q}</div>
     <div class="t-opts">${q.opts.map((o,i)=>`<button class="t-btn" style="font-size:1rem;padding:.7rem 1rem;border-color:#600;color:#ff8080" onclick="ansQ(${i})">[${i+1}] ${o}</button>`).join('')}</div>
     <div class="tl" id="tfb" style="min-height:1.4em;margin-top:.5rem;font-size:.95rem;"></div>`;
-
-  // *** TIMER por pregunta ***
-  if(g5timer)clearInterval(g5timer);
-  g5timer = setInterval(()=>{
-    g5timeLeft -= 0.1;
-    const t=document.getElementById('g5time');
-    if(t) t.textContent = Math.max(0,Math.ceil(g5timeLeft))+'s';
-    if(g5timeLeft<=0){
-      clearInterval(g5timer);
-      if(!g5ans){
-        g5ans=true;
-        // Tiempo agotado = como respuesta incorrecta
-        const fb=document.getElementById('tfb');
-        if(fb){fb.textContent='> ⏱ TIEMPO AGOTADO. Alerta de seguridad.';fb.style.color='var(--red)';}
-        const fl=document.getElementById('g5flash');
-        if(fl){fl.style.display='flex';st(()=>{fl.style.display='none';},700);}
-        st(()=>{
-          g5ans=false;
-          if(S.lives>1){loseLife('Tiempo agotado');st(()=>rTerm(),400);}
-          else{showLose('El Doctor bloqueó el sistema.');}
-        },900);
-      }
-    }
-  },100);
 }
 function ansQ(idx){
   if(g5ans)return;g5ans=true;
-  if(g5timer)clearInterval(g5timer);
   const q=g5questions[g5cur];
   const btns=document.querySelectorAll('#g5term .t-btn');
   const fb=document.getElementById('tfb');
@@ -1542,13 +1574,14 @@ function ansQ(idx){
     else{st(()=>{g5ans=false;rTerm();},900);}
   }else{
     if(btns[idx])btns[idx].classList.add('bad');
-    if(fb){fb.textContent='> ✗ INCORRECTO. Alerta de seguridad.';fb.style.color='var(--red)';}
+    g5vidas--;
+    if(fb){fb.textContent=`> ✗ INCORRECTO. Vidas restantes: ${g5vidas}`;fb.style.color='var(--red)';}
     const fl=document.getElementById('g5flash');
     if(fl){fl.style.display='flex';st(()=>{fl.style.display='none';},700);}
     st(()=>{
       g5ans=false;
-      if(S.lives>1){loseLife('Respuesta incorrecta');st(()=>rTerm(),400);}
-      else{showLose('El Doctor bloqueó el sistema.');}
+      if(g5vidas<=0){showLose('El Doctor bloqueó el sistema.');}
+      else{rTerm();}
     },900);
   }
 }
@@ -1556,17 +1589,21 @@ function ansQ(idx){
 // ===== GAME 6: SIMON SAYS - Sello =====
 // *** AMPLIADO: ahora hay 9 imágenes en el panel (antes 5) ***
 // La secuencia sigue siendo de 5, pero hay más distractores en pantalla
+// 5 originales + 6 nuevas con animatrónicos = 11 imágenes (la #11 es respaldo)
 const SY_POOL=[
   'https://i.pinimg.com/564x/15/f2/f1/15f2f1b33ff45abfa88b2e45da167d34.jpg',
   'https://i.pinimg.com/originals/9a/a2/11/9aa2112b7dfbb22e2e851b96745e5ed6.png',
   'https://i.redd.it/041znvbs9fi61.jpg',
   'https://i.pinimg.com/736x/44/e3/13/44e3139d227eee14834b7f1a9b64ddec.jpg',
   'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSbPOTRrHc4oo7Ix1bkhxzKM-735x9QfJl3QQ&s',
-  // 4 imágenes nuevas para subir a 9 botones (puedes reemplazar las URLs si quieres otras)
-  'https://static.wikia.nocookie.net/fivenightsatfreddys/images/4/4f/Springtrap_Stare.png',
-  'https://static.wikia.nocookie.net/fivenightsatfreddys/images/9/9c/Springtrap_jumpscare.png',
-  'https://i.pinimg.com/originals/2e/16/a1/2e16a1b2db35c9f9b4e89d3a9a2f7c8a.jpg',
-  'https://i.pinimg.com/originals/54/8e/19/548e19c3f2a4e0d21e2c7d5a8b9c1d2e.jpg',
+  // 3 imágenes que pidió el usuario (faltantes)
+  'https://i.pinimg.com/originals/bd/d6/f9/bdd6f9499b6471448c98ce2eb0a70953.jpg',
+  'https://i.pinimg.com/736x/08/6e/09/086e09ba00ac76e4c10f7207f10b48f4.jpg',
+  'https://i.pinimg.com/736x/f1/24/38/f12438e682e2796b2c00556ce0f652ad.jpg',  // respaldo (Shadow Bonnie no tenía url directa)
+  // 3 imágenes adicionales del usuario
+  'https://i.pinimg.com/474x/b2/d8/1e/b2d81ec3e5f3b1174d35a89a40d0832b.jpg',
+  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQkL5dV3JRC16rCBYNaxZGylhIgPRVKVSyW8w&s',
+  'https://i.pinimg.com/236x/77/77/0d/77770d6be4a50f0c4c99b3650a586b59.jpg',
 ];
 let g6seq=[],g6inp=[],g6phase=0,g6showing=false;
 const G6_LONGITUD = 5; // longitud final de la secuencia
@@ -1593,8 +1630,8 @@ function bG6(c){
     <div id="g6lbl" style="font-family:var(--fmono);font-size:1rem;color:#e74c3c;letter-spacing:2px;">Memoriza la secuencia...</div>
     <div id="g6flash-panel" style="min-height:160px;display:flex;gap:1rem;align-items:center;justify-content:center;"></div>
     <div id="g6ir" style="display:flex;gap:1rem;min-height:80px;align-items:center;justify-content:center;flex-wrap:wrap;"></div>
-    <div id="g6bg" style="display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;justify-content:center;max-width:380px;">
-      ${SY_POOL.map((src,i)=>`<button onclick="tapSimon(${i})" style="width:110px;height:110px;border-radius:50%;overflow:hidden;border:3px solid #c0392b;cursor:pointer;background:#000;padding:0;transition:transform .15s;box-shadow:0 0 12px rgba(192,57,43,.5);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"><img src="${src}" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" onerror="this.style.display='none'"></button>`).join('')}
+    <div id="g6bg" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;justify-content:center;max-width:560px;">
+      ${SY_POOL.map((src,i)=>`<button onclick="tapSimon(${i})" style="width:120px;height:120px;border-radius:50%;overflow:hidden;border:3px solid #c0392b;cursor:pointer;background:#000;padding:0;transition:transform .15s;box-shadow:0 0 12px rgba(192,57,43,.5);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"><img src="${src}" style="width:100%;height:100%;object-fit:cover;pointer-events:none;background:#222;" onerror="this.style.opacity='0.3';this.alt='?'"></button>`).join('')}
     </div>
     <button onclick="clearSimon()" style="font-family:var(--fmono);font-size:.85rem;color:#c0392b;background:rgba(192,57,43,.1);border:1px solid #c0392b;border-radius:4px;padding:.5rem 1.5rem;cursor:pointer;letter-spacing:2px;">↩ BORRAR</button>`;
   f.appendChild(wrap);
@@ -1643,14 +1680,25 @@ function nextSimonRound(){
 
 function mostrarSecuencia6(onDone){
   const fp=document.getElementById('g6flash-panel');
-  // Cada imagen: 2s visible, 400ms pausa
+  // *** TIEMPOS DIFERENCIADOS ***
+  // Posición 0,1: 1000ms visible + 300ms pausa = 1300ms cada una
+  // Posición 2,3,4: 500ms visible + 200ms pausa = 700ms cada una
+  let tiempoAcumulado = 0;
+  const tiempos = [];
   g6seq.forEach((idx,i)=>{
+    const visible = i<2 ? 1000 : 500;
+    const pausa = i<2 ? 300 : 200;
+    tiempos.push({inicio: tiempoAcumulado, visible: visible});
+    tiempoAcumulado += visible + pausa;
+  });
+  g6seq.forEach((idx,i)=>{
+    const t = tiempos[i];
     st(()=>{
       if(fp)fp.innerHTML=`<div style="width:160px;height:160px;border-radius:50%;overflow:hidden;border:4px solid #c0392b;box-shadow:0 0 30px #c0392b;"><img src="${SY_POOL[idx]}" style="width:100%;height:100%;object-fit:cover;"></div>`;
-    },i*2400);
-    st(()=>{if(fp)fp.innerHTML='';},i*2400+2000);
+    },t.inicio);
+    st(()=>{if(fp)fp.innerHTML='';},t.inicio + t.visible);
   });
-  st(onDone, g6seq.length*2400+400);
+  st(onDone, tiempoAcumulado + 200);
 }
 
 function tapSimon(idx){
