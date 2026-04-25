@@ -1790,11 +1790,11 @@ const PROTO_IMG = 'images/prototipo.png';
 // tiempo_show = ms que cada cuadro está visible
 // tiempo_replicar = ms para que el jugador complete su réplica
 const G7_NIVELES = [
-  {elementos:3, tiempo_show:700, tiempo_replicar:6000}, // Nivel 1: fácil
-  {elementos:4, tiempo_show:600, tiempo_replicar:6000}, // Nivel 2
-  {elementos:5, tiempo_show:500, tiempo_replicar:5500}, // Nivel 3
-  {elementos:6, tiempo_show:400, tiempo_replicar:5000}, // Nivel 4
-  {elementos:7, tiempo_show:300, tiempo_replicar:4500}, // Nivel 5: difícil
+  {elementos:2, tiempo_show:800, tiempo_replicar:6000}, // Nivel 1: muy fácil
+  {elementos:3, tiempo_show:700, tiempo_replicar:6000}, // Nivel 2
+  {elementos:4, tiempo_show:600, tiempo_replicar:5500}, // Nivel 3
+  {elementos:5, tiempo_show:500, tiempo_replicar:5000}, // Nivel 4
+  {elementos:5, tiempo_show:350, tiempo_replicar:4500}, // Nivel 5: máximo 5 pero más rápido
 ];
 const G7_GRID = 4; // Grid 4x4 de cuadros en cada lado
 let g7nivel=0, g7secuencia=[], g7input=[], g7vidas=5, g7esperando=false, g7timerReplicar=null;
@@ -2036,13 +2036,28 @@ function g7fallar(motivo){
     }
     st(()=>showLose('El Prototipo te absorbió en su sello.'),1700);
   } else {
-    // Reintentar mismo nivel
+    // Reintentar mismo nivel: reset COMPLETO del estado
     st(()=>{
-      // Limpiar grid
+      // 1. Limpiar TODAS las celdas del grid (color y sombra)
       for(let i=0;i<G7_GRID*G7_GRID;i++){
         const c=document.getElementById('g7C'+i);
-        if(c){c.style.background='#1a0033';c.style.boxShadow='';}
+        if(c){
+          c.style.background='#1a0033';
+          c.style.boxShadow='';
+          c.style.animation='';
+        }
       }
+      // 2. Reset estado: input, secuencia, espera y barra de progreso
+      g7input=[];
+      g7esperando=false;
+      const prog=document.getElementById('g7prog');
+      if(prog)prog.style.width='0%';
+      // 3. Asegurar que el timer anterior esté cancelado
+      if(g7timerReplicar){
+        cancelAnimationFrame(g7timerReplicar);
+        g7timerReplicar=null;
+      }
+      // 4. Reiniciar el nivel (NO se incrementa g7nivel, es el mismo)
       iniciarNivel7();
     }, 1800);
   }
@@ -2051,57 +2066,116 @@ function g7fallar(motivo){
 // ===== IDs DE VIDEOS DE YOUTUBE (REEMPLAZA CON LOS TUYOS) =====
 // Sube los videos a YouTube como "no listados" y pega aquí solo el ID
 // Ejemplo: si la URL es https://youtu.be/abc123XYZ → el ID es "abc123XYZ"
-const PROTO_VIDEO_AWAKE   = 'YRovkmCCZV4';  // Video del Prototipo DESPERTANDO (reemplazar)
-const PROTO_VIDEO_DEFEAT  = 'YRovkmCCZV4';  // Video del Prototipo SIENDO DERROTADO (reemplazar)
+const PROTO_VIDEO_AWAKE   = 'ezKOWtHCmlk';  // Video del Prototipo DESPERTANDO
+const PROTO_VIDEO_DEFEAT  = '5vilg5XWiow';  // Video del Prototipo DERROTADO (es Short vertical)
 
 // ===== TRANSICIÓN ENTRE RETO 6 Y RETO 7 =====
-// PASO 1: Pantalla de aviso "ALGO HA DESPERTADO" + botón ENFRENTARLO
-function showProtoTransition(){
-  const w=document.getElementById('g-wrap');
-  w.querySelectorAll('#g6f').forEach(e=>e.remove());
+// FLUJO:
+//   PASO 1: showProtoTransition()  → INMEDIATAMENTE el video despertando en pantalla completa
+//                                     (sin botones al inicio, aparece botón al terminar el video)
+//   PASO 2: showProtoIntermedia()  → Pantalla "HA DESPERTADO" con video EMBEBIDO + botón INICIAR
+//   PASO 3: iniciarReto7()         → El reto 7
+//   PASO 4: showProtoDefeatVideo() → Video derrotado en pantalla completa al ganar
 
-  const trans=document.createElement('div');
-  trans.id='proto-trans';
-  trans.style.cssText='position:absolute;inset:0;background:radial-gradient(ellipse at center,#1a0033 0%,#000 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:300;gap:2rem;padding:2rem;';
-  trans.innerHTML=`
-    <div style="font-family:var(--fhud);font-size:2rem;color:#a040ff;letter-spacing:8px;text-shadow:0 0 30px #a040ff;animation:blink 1s infinite;">⚠ ALGO HA DESPERTADO ⚠</div>
-    <img src="${PROTO_IMG}" style="width:300px;height:300px;object-fit:contain;filter:drop-shadow(0 0 40px #a040ff);animation:charPulse 2s ease-in-out infinite;" onerror="this.style.display='none'">
-    <div style="font-family:var(--fmono);font-size:1.1rem;color:#fff;text-align:center;max-width:800px;line-height:1.6;">
-      Spring Trap ha caído... pero con su sello roto, el <span style="color:#a040ff;font-weight:bold;font-size:1.3rem">PROTOTIPO</span> ha despertado.<br>
-      <span style="color:#888;font-size:.9rem">Es el ser más antiguo de Playtime Co. y solo tú puedes detenerlo.</span>
-    </div>
-    <button onclick="showProtoAwakeVideo()" style="margin-top:1rem;font-family:var(--fhud);font-size:1.4rem;color:#fff;background:linear-gradient(135deg,#4a0080,#a040ff);border:2px solid #fff;border-radius:8px;padding:1.2rem 3.5rem;cursor:pointer;letter-spacing:5px;box-shadow:0 0 40px rgba(160,64,255,.9);animation:blink 1.5s infinite;">⚡ ENFRENTARLO ⚡</button>
-  `;
-  w.appendChild(trans);
+// Cargar la API de YouTube IFrame para detectar fin de video
+let _ytApiLoading = false, _ytApiReady = false;
+function loadYouTubeAPI(callback){
+  if(_ytApiReady){callback();return;}
+  if(_ytApiLoading){
+    // Esperar a que termine de cargar
+    const t=setInterval(()=>{
+      if(_ytApiReady){clearInterval(t);callback();}
+    },200);
+    return;
+  }
+  _ytApiLoading=true;
+  if(window.YT && window.YT.Player){
+    _ytApiReady=true;callback();return;
+  }
+  const tag=document.createElement('script');
+  tag.src='https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+  window.onYouTubeIframeAPIReady=()=>{_ytApiReady=true;callback();};
+  // Fallback por si la API tarda mucho
+  st(()=>{if(!_ytApiReady){_ytApiReady=true;callback();}},5000);
 }
 
-// PASO 2: VIDEO DEL PROTOTIPO DESPERTANDO en PANTALLA COMPLETA
-function showProtoAwakeVideo(){
+// PASO 1: Video del Prototipo DESPERTANDO directo en pantalla completa
+function showProtoTransition(){
   const w=document.getElementById('g-wrap');
-  w.querySelectorAll('#proto-trans').forEach(e=>e.remove());
+  // Limpiar pantalla previa del Reto 6
+  w.querySelectorAll('#g6f').forEach(e=>e.remove());
 
   const vid=document.createElement('div');
   vid.id='proto-vid-full';
   vid.style.cssText='position:absolute;inset:0;background:#000;display:flex;flex-direction:column;z-index:400;';
   vid.innerHTML=`
     <div style="flex:1;position:relative;">
-      <iframe id="proto-awake-iframe" src="https://www.youtube-nocookie.com/embed/${PROTO_VIDEO_AWAKE}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1" style="position:absolute;inset:0;width:100%;height:100%;border:none;" allow="autoplay; fullscreen"></iframe>
+      <div id="proto-awake-player" style="position:absolute;inset:0;width:100%;height:100%;"></div>
     </div>
-    <div style="background:#000;padding:1.5rem;display:flex;justify-content:center;">
-      <button onclick="iniciarReto7()" style="font-family:var(--fhud);font-size:1.3rem;color:#fff;background:linear-gradient(135deg,#a040ff,#ff40aa);border:2px solid #fff;border-radius:8px;padding:1rem 3rem;cursor:pointer;letter-spacing:4px;box-shadow:0 0 30px rgba(160,64,255,.9);">▶ INICIAR EL RETO</button>
+    <div id="proto-awake-btn-wrap" style="background:#000;padding:1.5rem;display:flex;justify-content:center;opacity:0;transition:opacity .8s;pointer-events:none;">
+      <button onclick="showProtoIntermedia()" style="font-family:var(--fhud);font-size:1.4rem;color:#fff;background:linear-gradient(135deg,#4a0080,#a040ff);border:2px solid #fff;border-radius:8px;padding:1.2rem 3.5rem;cursor:pointer;letter-spacing:5px;box-shadow:0 0 40px rgba(160,64,255,.9);animation:blink 1.5s infinite;">⚡ ENFRENTARLO ⚡</button>
     </div>
   `;
   w.appendChild(vid);
+
+  // Crear el player con API para detectar fin de video
+  loadYouTubeAPI(()=>{
+    try {
+      new YT.Player('proto-awake-player',{
+        videoId: PROTO_VIDEO_AWAKE,
+        playerVars:{autoplay:1, controls:1, rel:0, modestbranding:1, playsinline:1},
+        events:{
+          onReady:(e)=>{ try{e.target.playVideo();}catch(err){} },
+          onStateChange:(e)=>{
+            // Estado 0 = ENDED (terminó)
+            if(e.data===0)mostrarBotonEnfrentarlo();
+          }
+        }
+      });
+    } catch(err) {
+      // Fallback: si falla la API, mostrar botón después de 30s
+      st(mostrarBotonEnfrentarlo, 30000);
+    }
+  });
+
+  // Fallback adicional: mostrar botón después de 60s sí o sí
+  st(mostrarBotonEnfrentarlo, 60000);
+}
+
+function mostrarBotonEnfrentarlo(){
+  const w=document.getElementById('proto-awake-btn-wrap');
+  if(w){w.style.opacity='1';w.style.pointerEvents='auto';}
+}
+
+// PASO 2: Pantalla intermedia con video embebido + botón INICIAR EL RETO
+function showProtoIntermedia(){
+  const w=document.getElementById('g-wrap');
+  w.querySelectorAll('#proto-vid-full').forEach(e=>e.remove());
+
+  const trans=document.createElement('div');
+  trans.id='proto-trans';
+  trans.style.cssText='position:absolute;inset:0;background:radial-gradient(ellipse at center,#1a0033 0%,#000 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:300;gap:1.5rem;padding:2rem;overflow-y:auto;';
+  trans.innerHTML=`
+    <div style="font-family:var(--fhud);font-size:1.8rem;color:#a040ff;letter-spacing:8px;text-shadow:0 0 30px #a040ff;animation:blink 1s infinite;">⚠ ALGO HA DESPERTADO ⚠</div>
+    <div style="width:70%;max-width:900px;aspect-ratio:16/9;border:3px solid #a040ff;border-radius:10px;overflow:hidden;box-shadow:0 0 50px rgba(160,64,255,.7);">
+      <iframe src="https://www.youtube-nocookie.com/embed/${PROTO_VIDEO_AWAKE}?autoplay=1&mute=1&loop=1&playlist=${PROTO_VIDEO_AWAKE}&controls=0&rel=0&modestbranding=1&playsinline=1" style="width:100%;height:100%;border:none;" allow="autoplay"></iframe>
+    </div>
+    <div style="font-family:var(--fmono);font-size:1rem;color:#fff;text-align:center;max-width:800px;line-height:1.5;">
+      Spring Trap ha caído... pero con su sello roto, el <span style="color:#a040ff;font-weight:bold;font-size:1.2rem">PROTOTIPO</span> ha despertado.<br>
+      <span style="color:#888;font-size:.85rem">Es el ser más antiguo de Playtime Co. y solo tú puedes detenerlo.</span>
+    </div>
+    <button onclick="iniciarReto7()" style="font-family:var(--fhud);font-size:1.3rem;color:#fff;background:linear-gradient(135deg,#a040ff,#ff40aa);border:2px solid #fff;border-radius:8px;padding:1rem 3rem;cursor:pointer;letter-spacing:4px;box-shadow:0 0 30px rgba(160,64,255,.9);">▶ INICIAR EL RETO</button>
+  `;
+  w.appendChild(trans);
 }
 
 // PASO 3: Iniciar el Reto 7
 function iniciarReto7(){
   const w=document.getElementById('g-wrap');
-  // Quitar la pantalla del video
-  w.querySelectorAll('#proto-vid-full').forEach(e=>{
-    // Detener el video primero
-    const ifr=e.querySelector('iframe');
-    if(ifr)ifr.src='';
+  // Quitar la pantalla intermedia (detener iframes para parar audio)
+  w.querySelectorAll('#proto-trans').forEach(e=>{
+    e.querySelectorAll('iframe').forEach(ifr=>ifr.src='');
     e.remove();
   });
   // Crear el reto 7
@@ -2118,18 +2192,42 @@ function showProtoDefeatVideo(){
   vid.id='proto-defeat-full';
   vid.style.cssText='position:absolute;inset:0;background:#000;display:flex;flex-direction:column;z-index:400;';
   vid.innerHTML=`
-    <div style="background:#000;padding:1rem;text-align:center;">
-      <div style="font-family:var(--fhud);font-size:1.8rem;color:#40ffaa;letter-spacing:6px;text-shadow:0 0 25px #40ffaa;">⚡ EL PROTOTIPO HA SIDO SELLADO ⚡</div>
+    <div style="background:#000;padding:.8rem;text-align:center;">
+      <div style="font-family:var(--fhud);font-size:1.6rem;color:#40ffaa;letter-spacing:6px;text-shadow:0 0 25px #40ffaa;">⚡ EL PROTOTIPO HA SIDO SELLADO ⚡</div>
     </div>
     <div style="flex:1;position:relative;">
-      <iframe id="proto-defeat-iframe" src="https://www.youtube-nocookie.com/embed/${PROTO_VIDEO_DEFEAT}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1" style="position:absolute;inset:0;width:100%;height:100%;border:none;" allow="autoplay; fullscreen"></iframe>
+      <div id="proto-defeat-player" style="position:absolute;inset:0;width:100%;height:100%;"></div>
     </div>
-    <div style="background:#000;padding:1.5rem;display:flex;flex-direction:column;align-items:center;gap:1rem;">
+    <div id="proto-defeat-btn-wrap" style="background:#000;padding:1.5rem;display:flex;flex-direction:column;align-items:center;gap:1rem;opacity:0;transition:opacity .8s;pointer-events:none;">
       <div style="font-family:var(--fhud);font-size:1rem;color:#c0392b;letter-spacing:3px;text-align:center;">Has derrotado a todos los enemigos de Playtime Co.<br><span style="color:#888;font-size:.8rem;font-family:var(--fmono);">Continuará en la Entrega 3</span></div>
       <button onclick="resetGame()" style="font-family:var(--fhud);font-size:1.2rem;color:#000;background:#40ffaa;border:none;border-radius:8px;padding:1rem 3rem;cursor:pointer;letter-spacing:4px;box-shadow:0 0 30px rgba(64,255,170,.8);">🔄 JUGAR DESDE EL INICIO</button>
     </div>
   `;
   w.appendChild(vid);
+
+  // Cargar player con API
+  loadYouTubeAPI(()=>{
+    try {
+      new YT.Player('proto-defeat-player',{
+        videoId: PROTO_VIDEO_DEFEAT,
+        playerVars:{autoplay:1, controls:1, rel:0, modestbranding:1, playsinline:1},
+        events:{
+          onReady:(e)=>{ try{e.target.playVideo();}catch(err){} },
+          onStateChange:(e)=>{ if(e.data===0)mostrarBotonReiniciar(); }
+        }
+      });
+    } catch(err) {
+      st(mostrarBotonReiniciar, 30000);
+    }
+  });
+
+  // Fallback adicional
+  st(mostrarBotonReiniciar, 60000);
+}
+
+function mostrarBotonReiniciar(){
+  const w=document.getElementById('proto-defeat-btn-wrap');
+  if(w){w.style.opacity='1';w.style.pointerEvents='auto';}
 }
 
 // Función legacy: ahora redirige a showProtoDefeatVideo
