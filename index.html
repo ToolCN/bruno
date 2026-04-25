@@ -1783,7 +1783,7 @@ function tapSimon(idx){
 
 // ===== GAME 7 SECRETO: REFLEJO INVERTIDO DEL PROTOTIPO =====
 // Imagen del Prototipo (puedes cambiarla por una mejor)
-const PROTO_IMG = 'https://static.wikia.nocookie.net/poppy-playtime-fan/images/d/d2/The_Prototype.png';
+const PROTO_IMG = 'images/prototipo.png';
 
 // Configuración de los 5 niveles
 // elementos = cuántos cuadros se encienden por nivel
@@ -1824,47 +1824,28 @@ function bG7(c){
     <div><div class="hud-lbl">Vidas</div><div class="hud-val" id="g7v">❤❤❤❤❤</div></div>
     <div><div class="hud-lbl">Estado</div><div class="hud-val" id="g7s" style="font-size:.85rem">OBSERVA</div></div>`;
 
-  // Contenedor de los dos paneles
+  // Contenedor del panel ÚNICO centrado
   const paneles=document.createElement('div');
-  paneles.style.cssText='position:relative;flex:1;display:flex;align-items:center;justify-content:center;gap:3rem;padding:6rem 2rem 2rem 2rem;z-index:5;';
+  paneles.style.cssText='position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;padding:5rem 2rem 2rem 2rem;z-index:5;';
 
-  // Panel izquierdo: el Prototipo muestra el patrón
-  const panelI=document.createElement('div');
-  panelI.style.cssText='display:flex;flex-direction:column;align-items:center;gap:.5rem;';
-  panelI.innerHTML=`<div style="font-family:var(--fhud);font-size:.9rem;color:#a040ff;letter-spacing:3px;">PROTOTIPO</div>`;
-  const gridI=document.createElement('div');gridI.id='g7gridI';
-  gridI.style.cssText=`display:grid;grid-template-columns:repeat(${G7_GRID},60px);grid-template-rows:repeat(${G7_GRID},60px);gap:6px;padding:1rem;background:rgba(80,0,120,.2);border:2px solid #a040ff;border-radius:8px;box-shadow:0 0 30px rgba(160,64,255,.4);`;
+  // Etiqueta superior dinámica
+  const etiqueta=document.createElement('div');etiqueta.id='g7etiqueta';
+  etiqueta.style.cssText='font-family:var(--fhud);font-size:1.2rem;color:#a040ff;letter-spacing:4px;text-shadow:0 0 15px #a040ff;';
+  etiqueta.textContent='OBSERVA EL PATRÓN';
+
+  // Grid ÚNICO 4x4: misma celda muestra el patrón y luego acepta input
+  const gridU=document.createElement('div');gridU.id='g7grid';
+  gridU.style.cssText=`display:grid;grid-template-columns:repeat(${G7_GRID},80px);grid-template-rows:repeat(${G7_GRID},80px);gap:8px;padding:1.5rem;background:rgba(80,0,120,.25);border:3px solid #a040ff;border-radius:12px;box-shadow:0 0 40px rgba(160,64,255,.5);`;
   for(let i=0;i<G7_GRID*G7_GRID;i++){
     const cell=document.createElement('div');
-    cell.id='g7iC'+i;
-    cell.style.cssText='width:60px;height:60px;background:#1a0033;border:1px solid #6b00b6;border-radius:6px;transition:all .15s;';
-    gridI.appendChild(cell);
-  }
-  panelI.appendChild(gridI);
-
-  // Indicador central: "ESPEJO ↔"
-  const espejo=document.createElement('div');
-  espejo.style.cssText='font-family:var(--fhud);font-size:1.5rem;color:#fff;text-shadow:0 0 15px #a040ff;letter-spacing:4px;';
-  espejo.innerHTML='ESPEJO<br><div style="font-size:2.5rem;margin-top:.3rem">↔</div>';
-
-  // Panel derecho: el jugador replica espejado
-  const panelD=document.createElement('div');
-  panelD.style.cssText='display:flex;flex-direction:column;align-items:center;gap:.5rem;';
-  panelD.innerHTML=`<div style="font-family:var(--fhud);font-size:.9rem;color:#40ffaa;letter-spacing:3px;">TU REFLEJO</div>`;
-  const gridD=document.createElement('div');gridD.id='g7gridD';
-  gridD.style.cssText=`display:grid;grid-template-columns:repeat(${G7_GRID},60px);grid-template-rows:repeat(${G7_GRID},60px);gap:6px;padding:1rem;background:rgba(0,80,60,.2);border:2px solid #40ffaa;border-radius:8px;box-shadow:0 0 30px rgba(64,255,170,.4);`;
-  for(let i=0;i<G7_GRID*G7_GRID;i++){
-    const cell=document.createElement('div');
-    cell.id='g7dC'+i;
-    cell.style.cssText='width:60px;height:60px;background:#001a14;border:1px solid #006b50;border-radius:6px;cursor:pointer;transition:all .15s;';
+    cell.id='g7C'+i;
+    cell.style.cssText='width:80px;height:80px;background:#1a0033;border:1px solid #6b00b6;border-radius:8px;transition:all .15s;cursor:pointer;';
     cell.onclick=()=>g7tap(i);
-    gridD.appendChild(cell);
+    gridU.appendChild(cell);
   }
-  panelD.appendChild(gridD);
 
-  paneles.appendChild(panelI);
-  paneles.appendChild(espejo);
-  paneles.appendChild(panelD);
+  paneles.appendChild(etiqueta);
+  paneles.appendChild(gridU);
 
   // Barra de progreso del nivel actual
   const progWrap=document.createElement('div');
@@ -1874,7 +1855,7 @@ function bG7(c){
   // Pista visual
   const hint=document.createElement('div');
   hint.style.cssText='position:relative;z-index:5;text-align:center;font-family:var(--fmono);font-size:.85rem;color:#888;margin-bottom:1.5rem;letter-spacing:1px;';
-  hint.innerHTML='Memoriza el patrón del Prototipo y replícalo <span style="color:#a040ff">EN ESPEJO</span> en tu lado.';
+  hint.innerHTML='Memoriza el patrón del Prototipo y <span style="color:#a040ff">REPÍTELO EXACTO</span> en el mismo orden.';
 
   f.appendChild(hud);
   f.appendChild(paneles);
@@ -1899,19 +1880,10 @@ function sG7(){
   st(()=>iniciarNivel7(),800);
 }
 
-// Convierte un índice del lado izquierdo a su espejo en el lado derecho
-// Grid 4x4: la columna se invierte (col 0 ↔ col 3, col 1 ↔ col 2)
-function espejarIndice(idx){
-  const fila = Math.floor(idx/G7_GRID);
-  const col = idx % G7_GRID;
-  const colEspejo = (G7_GRID-1) - col;
-  return fila*G7_GRID + colEspejo;
-}
-
 function iniciarNivel7(){
   if(g7nivel>=G7_NIVELES.length){
-    // ¡Ganó todos los niveles!
-    showFinalVictory();
+    // ¡Ganó todos los niveles! → Video de victoria en pantalla completa
+    showProtoDefeatVideo();
     return;
   }
   const nivel = G7_NIVELES[g7nivel];
@@ -1922,15 +1894,23 @@ function iniciarNivel7(){
   const indices = Array.from({length:G7_GRID*G7_GRID},(_,i)=>i);
   g7secuencia = indices.sort(()=>Math.random()-.5).slice(0, nivel.elementos);
 
-  // Actualizar HUD
+  // Actualizar HUD y etiqueta
   const ne=document.getElementById('g7n');if(ne)ne.textContent=`${g7nivel+1}/5`;
   const se=document.getElementById('g7s');if(se){se.textContent='OBSERVA';se.style.color='#a040ff';}
+  const et=document.getElementById('g7etiqueta');
+  if(et){et.textContent='OBSERVA EL PATRÓN';et.style.color='#a040ff';}
 
-  // Mostrar la secuencia en el lado izquierdo
+  // Bloquear clicks durante la demostración
+  for(let i=0;i<G7_GRID*G7_GRID;i++){
+    const c=document.getElementById('g7C'+i);
+    if(c)c.style.pointerEvents='none';
+  }
+
+  // Mostrar la secuencia en el grid único
   let acumulado=0;
   g7secuencia.forEach((idx,i)=>{
     st(()=>{
-      const cell=document.getElementById('g7iC'+idx);
+      const cell=document.getElementById('g7C'+idx);
       if(cell){
         cell.style.background='#a040ff';
         cell.style.boxShadow='0 0 25px #a040ff,inset 0 0 15px #fff';
@@ -1939,7 +1919,7 @@ function iniciarNivel7(){
       playFx('memory');
     }, acumulado);
     st(()=>{
-      const cell=document.getElementById('g7iC'+idx);
+      const cell=document.getElementById('g7C'+idx);
       if(cell){
         cell.style.background='#1a0033';
         cell.style.boxShadow='';
@@ -1953,6 +1933,13 @@ function iniciarNivel7(){
   st(()=>{
     g7esperando=true;
     const se=document.getElementById('g7s');if(se){se.textContent='REPLICA';se.style.color='#40ffaa';}
+    const et=document.getElementById('g7etiqueta');
+    if(et){et.textContent='REPITE LA SECUENCIA';et.style.color='#40ffaa';et.style.textShadow='0 0 15px #40ffaa';}
+    // Habilitar clicks
+    for(let i=0;i<G7_GRID*G7_GRID;i++){
+      const c=document.getElementById('g7C'+i);
+      if(c)c.style.pointerEvents='';
+    }
     iniciarTimerReplicar(nivel.tiempo_replicar);
   }, acumulado + 300);
 }
@@ -1976,24 +1963,22 @@ function iniciarTimerReplicar(duracion){
   tick();
 }
 
-function g7tap(idxDerecho){
+function g7tap(idx){
   if(!g7esperando)return;
-  // El jugador debe presionar el ESPEJO de la secuencia
+  // El jugador debe presionar EXACTAMENTE el mismo índice que se mostró
   const posicionEnSecuencia = g7input.length;
-  const idxIzqEsperado = g7secuencia[posicionEnSecuencia];
-  const idxDerEsperado = espejarIndice(idxIzqEsperado);
+  const idxEsperado = g7secuencia[posicionEnSecuencia];
 
-  // Pintar la celda como pulsada (verde si correcto, rojo si incorrecto)
-  const cell=document.getElementById('g7dC'+idxDerecho);
+  const cell=document.getElementById('g7C'+idx);
 
-  if(idxDerecho === idxDerEsperado){
+  if(idx === idxEsperado){
     // Correcto
     if(cell){
       cell.style.background='#40ffaa';
       cell.style.boxShadow='0 0 25px #40ffaa,inset 0 0 15px #fff';
     }
     playFx('correct');
-    g7input.push(idxDerecho);
+    g7input.push(idx);
 
     if(g7input.length === g7secuencia.length){
       // ¡Nivel completo!
@@ -2002,11 +1987,11 @@ function g7tap(idxDerecho){
       const prog=document.getElementById('g7prog');if(prog)prog.style.width='0%';
       const se=document.getElementById('g7s');if(se){se.textContent='✓ NIVEL COMPLETO';se.style.color='#40ffaa';}
       g7nivel++;
-      // Limpiar celdas pintadas tras 1s y empezar siguiente nivel
+      // Limpiar celdas pintadas tras 1.5s y empezar siguiente nivel
       st(()=>{
         for(let i=0;i<G7_GRID*G7_GRID;i++){
-          const c=document.getElementById('g7dC'+i);
-          if(c){c.style.background='#001a14';c.style.boxShadow='';}
+          const c=document.getElementById('g7C'+i);
+          if(c){c.style.background='#1a0033';c.style.boxShadow='';}
         }
         iniciarNivel7();
       }, 1500);
@@ -2053,69 +2038,103 @@ function g7fallar(motivo){
   } else {
     // Reintentar mismo nivel
     st(()=>{
-      // Limpiar grid derecho
+      // Limpiar grid
       for(let i=0;i<G7_GRID*G7_GRID;i++){
-        const c=document.getElementById('g7dC'+i);
-        if(c){c.style.background='#001a14';c.style.boxShadow='';}
+        const c=document.getElementById('g7C'+i);
+        if(c){c.style.background='#1a0033';c.style.boxShadow='';}
       }
       iniciarNivel7();
     }, 1800);
   }
 }
 
+// ===== IDs DE VIDEOS DE YOUTUBE (REEMPLAZA CON LOS TUYOS) =====
+// Sube los videos a YouTube como "no listados" y pega aquí solo el ID
+// Ejemplo: si la URL es https://youtu.be/abc123XYZ → el ID es "abc123XYZ"
+const PROTO_VIDEO_AWAKE   = 'YRovkmCCZV4';  // Video del Prototipo DESPERTANDO (reemplazar)
+const PROTO_VIDEO_DEFEAT  = 'YRovkmCCZV4';  // Video del Prototipo SIENDO DERROTADO (reemplazar)
+
 // ===== TRANSICIÓN ENTRE RETO 6 Y RETO 7 =====
-// Cuando se completa Simon, en lugar de ir directo al ending, mostramos
-// la cinemática del Prototipo despertando + botón "ENFRENTARLO"
+// PASO 1: Pantalla de aviso "ALGO HA DESPERTADO" + botón ENFRENTARLO
 function showProtoTransition(){
   const w=document.getElementById('g-wrap');
-  // Limpiar pantalla del reto 6
   w.querySelectorAll('#g6f').forEach(e=>e.remove());
 
   const trans=document.createElement('div');
   trans.id='proto-trans';
-  trans.style.cssText='position:absolute;inset:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:300;gap:1.5rem;padding:2rem;';
+  trans.style.cssText='position:absolute;inset:0;background:radial-gradient(ellipse at center,#1a0033 0%,#000 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:300;gap:2rem;padding:2rem;';
   trans.innerHTML=`
-    <div style="font-family:var(--fhud);font-size:1.4rem;color:#a040ff;letter-spacing:6px;text-shadow:0 0 20px #a040ff;animation:blink 1s infinite;">⚠ ALGO HA DESPERTADO ⚠</div>
-    <div id="proto-vid-wrap" style="width:80%;max-width:1000px;aspect-ratio:16/9;border:2px solid #a040ff;border-radius:8px;overflow:hidden;box-shadow:0 0 50px rgba(160,64,255,.6);background:#1a0033;display:flex;align-items:center;justify-content:center;">
-      <!-- VIDEO DEL PROTOTIPO DESPERTANDO -->
-      <!-- Reemplaza el src del iframe con tu video de IA cuando lo tengas -->
-      <iframe id="proto-vid" src="https://www.youtube-nocookie.com/embed/YRovkmCCZV4?autoplay=1&mute=0" style="width:100%;height:100%;border:none;" allow="autoplay"></iframe>
+    <div style="font-family:var(--fhud);font-size:2rem;color:#a040ff;letter-spacing:8px;text-shadow:0 0 30px #a040ff;animation:blink 1s infinite;">⚠ ALGO HA DESPERTADO ⚠</div>
+    <img src="${PROTO_IMG}" style="width:300px;height:300px;object-fit:contain;filter:drop-shadow(0 0 40px #a040ff);animation:charPulse 2s ease-in-out infinite;" onerror="this.style.display='none'">
+    <div style="font-family:var(--fmono);font-size:1.1rem;color:#fff;text-align:center;max-width:800px;line-height:1.6;">
+      Spring Trap ha caído... pero con su sello roto, el <span style="color:#a040ff;font-weight:bold;font-size:1.3rem">PROTOTIPO</span> ha despertado.<br>
+      <span style="color:#888;font-size:.9rem">Es el ser más antiguo de Playtime Co. y solo tú puedes detenerlo.</span>
     </div>
-    <div style="font-family:var(--fmono);font-size:1rem;color:#fff;text-align:center;max-width:700px;line-height:1.5;">
-      Spring Trap ha caído... pero con su sello roto, el <span style="color:#a040ff;font-weight:bold">PROTOTIPO</span> ha despertado.<br>
-      <span style="color:#888;font-size:.85rem">Es el ser más antiguo de Playtime Co. y solo tú puedes detenerlo.</span>
-    </div>
-    <button onclick="iniciarReto7()" style="margin-top:.5rem;font-family:var(--fhud);font-size:1.2rem;color:#fff;background:linear-gradient(135deg,#4a0080,#a040ff);border:2px solid #fff;border-radius:8px;padding:1rem 3rem;cursor:pointer;letter-spacing:4px;box-shadow:0 0 30px rgba(160,64,255,.8);animation:blink 1.5s infinite;">⚡ ENFRENTARLO ⚡</button>
+    <button onclick="showProtoAwakeVideo()" style="margin-top:1rem;font-family:var(--fhud);font-size:1.4rem;color:#fff;background:linear-gradient(135deg,#4a0080,#a040ff);border:2px solid #fff;border-radius:8px;padding:1.2rem 3.5rem;cursor:pointer;letter-spacing:5px;box-shadow:0 0 40px rgba(160,64,255,.9);animation:blink 1.5s infinite;">⚡ ENFRENTARLO ⚡</button>
   `;
   w.appendChild(trans);
 }
 
+// PASO 2: VIDEO DEL PROTOTIPO DESPERTANDO en PANTALLA COMPLETA
+function showProtoAwakeVideo(){
+  const w=document.getElementById('g-wrap');
+  w.querySelectorAll('#proto-trans').forEach(e=>e.remove());
+
+  const vid=document.createElement('div');
+  vid.id='proto-vid-full';
+  vid.style.cssText='position:absolute;inset:0;background:#000;display:flex;flex-direction:column;z-index:400;';
+  vid.innerHTML=`
+    <div style="flex:1;position:relative;">
+      <iframe id="proto-awake-iframe" src="https://www.youtube-nocookie.com/embed/${PROTO_VIDEO_AWAKE}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1" style="position:absolute;inset:0;width:100%;height:100%;border:none;" allow="autoplay; fullscreen"></iframe>
+    </div>
+    <div style="background:#000;padding:1.5rem;display:flex;justify-content:center;">
+      <button onclick="iniciarReto7()" style="font-family:var(--fhud);font-size:1.3rem;color:#fff;background:linear-gradient(135deg,#a040ff,#ff40aa);border:2px solid #fff;border-radius:8px;padding:1rem 3rem;cursor:pointer;letter-spacing:4px;box-shadow:0 0 30px rgba(160,64,255,.9);">▶ INICIAR EL RETO</button>
+    </div>
+  `;
+  w.appendChild(vid);
+}
+
+// PASO 3: Iniciar el Reto 7
 function iniciarReto7(){
   const w=document.getElementById('g-wrap');
-  // Quitar la pantalla de transición
-  w.querySelectorAll('#proto-trans').forEach(e=>e.remove());
-  // Detener el video iframe (por si seguía sonando)
-  const ifr=document.getElementById('proto-vid');
-  if(ifr)ifr.src='';
+  // Quitar la pantalla del video
+  w.querySelectorAll('#proto-vid-full').forEach(e=>{
+    // Detener el video primero
+    const ifr=e.querySelector('iframe');
+    if(ifr)ifr.src='';
+    e.remove();
+  });
   // Crear el reto 7
   bG7(w);
   st(()=>sG7(),300);
 }
 
-// La pantalla final REAL ahora es esta (después de derrotar al Prototipo)
-function showFinalVictory(){
+// PASO 4 (victoria): VIDEO DEL PROTOTIPO DERROTADO en PANTALLA COMPLETA
+function showProtoDefeatVideo(){
   const w=document.getElementById('g-wrap');
   w.querySelectorAll('#g7f').forEach(e=>e.remove());
-  const end=document.createElement('div');
-  end.style.cssText='position:absolute;inset:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:300;gap:2rem;';
-  end.innerHTML=`
-    <div style="font-family:var(--fhud);font-size:1.6rem;color:#40ffaa;letter-spacing:6px;text-shadow:0 0 25px #40ffaa;">⚡ EL PROTOTIPO HA SIDO SELLADO ⚡</div>
-    <div style="width:80%;aspect-ratio:16/9;border:2px solid #c0392b;border-radius:8px;overflow:hidden;box-shadow:0 0 40px rgba(192,57,43,.6);">
-      <iframe id="final-vid" src="https://www.youtube-nocookie.com/embed/YRovkmCCZV4?autoplay=1" style="width:100%;height:100%;border:none;" allow="autoplay"></iframe>
+
+  const vid=document.createElement('div');
+  vid.id='proto-defeat-full';
+  vid.style.cssText='position:absolute;inset:0;background:#000;display:flex;flex-direction:column;z-index:400;';
+  vid.innerHTML=`
+    <div style="background:#000;padding:1rem;text-align:center;">
+      <div style="font-family:var(--fhud);font-size:1.8rem;color:#40ffaa;letter-spacing:6px;text-shadow:0 0 25px #40ffaa;">⚡ EL PROTOTIPO HA SIDO SELLADO ⚡</div>
     </div>
-    <div style="font-family:var(--fhud);font-size:1.2rem;color:#c0392b;letter-spacing:3px;text-align:center;">Has derrotado a todos los enemigos de Playtime Co.<br><span style="color:#888;font-size:.8rem;font-family:var(--fmono);">Continuará en la Entrega 3</span></div>
-    <button onclick="resetGame()" style="margin-top:1rem;font-family:var(--fhud);font-size:1rem;color:#000;background:#40ffaa;border:none;border-radius:6px;padding:.75rem 2.5rem;cursor:pointer;letter-spacing:3px;box-shadow:0 0 20px rgba(64,255,170,.6);">🔄 JUGAR DESDE EL INICIO</button>`;
-  w.appendChild(end);
+    <div style="flex:1;position:relative;">
+      <iframe id="proto-defeat-iframe" src="https://www.youtube-nocookie.com/embed/${PROTO_VIDEO_DEFEAT}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1" style="position:absolute;inset:0;width:100%;height:100%;border:none;" allow="autoplay; fullscreen"></iframe>
+    </div>
+    <div style="background:#000;padding:1.5rem;display:flex;flex-direction:column;align-items:center;gap:1rem;">
+      <div style="font-family:var(--fhud);font-size:1rem;color:#c0392b;letter-spacing:3px;text-align:center;">Has derrotado a todos los enemigos de Playtime Co.<br><span style="color:#888;font-size:.8rem;font-family:var(--fmono);">Continuará en la Entrega 3</span></div>
+      <button onclick="resetGame()" style="font-family:var(--fhud);font-size:1.2rem;color:#000;background:#40ffaa;border:none;border-radius:8px;padding:1rem 3rem;cursor:pointer;letter-spacing:4px;box-shadow:0 0 30px rgba(64,255,170,.8);">🔄 JUGAR DESDE EL INICIO</button>
+    </div>
+  `;
+  w.appendChild(vid);
+}
+
+// Función legacy: ahora redirige a showProtoDefeatVideo
+function showFinalVictory(){
+  showProtoDefeatVideo();
 }
 
 function showFinalEnding(){
