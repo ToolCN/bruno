@@ -925,7 +925,7 @@ function updLives(){
   document.getElementById('gb-lives').textContent=a[Math.max(0,S.lives)];
 }
 function loseLife(msg){S.lives--;updLives();if(S.lives<=0){stopBgAudio();showLose(msg);}else toast(`❤️ ${S.lives} vidas`);}
-function showLose(msg){ stopBgAudio();clrT();document.getElementById('gl-txt').textContent=msg||'¡Inténtalo!';document.getElementById('g-lose').style.display='flex';}
+function showLose(msg){ stopBgAudio();clrT();if(typeof g7ClearTimers==='function')g7ClearTimers();document.getElementById('gl-txt').textContent=msg||'¡Inténtalo!';document.getElementById('g-lose').style.display='flex';}
 function showWin(){ stopBgAudio();
   clrT();
   const z=S.curGame===5?ZF:Z[S.curGame];
@@ -1832,18 +1832,22 @@ const PROTO_IMG = 'images/prototipo.png';
 // tiempo_show = ms que cada cuadro está visible
 // tiempo_replicar = ms para que el jugador complete su réplica
 const G7_NIVELES = [
-  {elementos:3, tiempo_show:700, tiempo_replicar:6000}, // Nivel 1: fácil
-  {elementos:4, tiempo_show:600, tiempo_replicar:6000}, // Nivel 2
-  {elementos:5, tiempo_show:500, tiempo_replicar:5500}, // Nivel 3
-  {elementos:6, tiempo_show:400, tiempo_replicar:5000}, // Nivel 4
-  {elementos:7, tiempo_show:300, tiempo_replicar:4500}, // Nivel 5: difícil
+  {elementos:1, tiempo_show:800}, // Nivel 1: 1 patrón
+  {elementos:2, tiempo_show:700}, // Nivel 2: 2 patrones
+  {elementos:3, tiempo_show:600}, // Nivel 3: 3 patrones
+  {elementos:4, tiempo_show:500}, // Nivel 4: 4 patrones
+  {elementos:5, tiempo_show:400}, // Nivel 5: 5 patrones (final)
 ];
 const G7_GRID = 4; // Grid 4x4 de cuadros en cada lado
-let g7nivel=0, g7secuencia=[], g7input=[], g7vidas=5, g7esperando=false, g7timerReplicar=null;
+let g7nivel=0, g7secuencia=[], g7input=[], g7vidas=5, g7esperando=false;
 
 function bG7(c){
+  // Limpiar cualquier timer del reto 7 que quedara de partida anterior
+  if(typeof g7Timers !== 'undefined' && g7Timers.length){
+    g7Timers.forEach(id => clearTimeout(id));
+    g7Timers = [];
+  }
   g7nivel=0;g7secuencia=[];g7input=[];g7vidas=5;g7esperando=false;
-  if(g7timerReplicar)clearTimeout(g7timerReplicar);
 
   const f=document.createElement('div');f.id='g7f';
   f.style.cssText='position:absolute;inset:0;background:radial-gradient(ellipse at center,#1a0033 0%,#000 100%);display:flex;flex-direction:column;overflow:hidden;';
@@ -1889,11 +1893,6 @@ function bG7(c){
   paneles.appendChild(etiqueta);
   paneles.appendChild(gridU);
 
-  // Barra de progreso del nivel actual
-  const progWrap=document.createElement('div');
-  progWrap.style.cssText='position:relative;z-index:5;width:60%;margin:0 auto 1rem auto;height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;';
-  progWrap.innerHTML='<div id="g7prog" style="width:0%;height:100%;background:linear-gradient(90deg,#a040ff,#40ffaa);transition:width .1s linear;"></div>';
-
   // Pista visual
   const hint=document.createElement('div');
   hint.style.cssText='position:relative;z-index:5;text-align:center;font-family:var(--fmono);font-size:.85rem;color:#888;margin-bottom:1.5rem;letter-spacing:1px;';
@@ -1901,7 +1900,6 @@ function bG7(c){
 
   f.appendChild(hud);
   f.appendChild(paneles);
-  f.appendChild(progWrap);
   f.appendChild(hint);
   c.appendChild(f);
 
@@ -1922,96 +1920,97 @@ function sG7(){
   st(()=>iniciarNivel7(),800);
 }
 
+// Lista propia de timers del reto 7 (no usa TT global)
+let g7Timers = [];
+function g7st(fn, ms){
+  const id = setTimeout(fn, ms);
+  g7Timers.push(id);
+  return id;
+}
+function g7ClearTimers(){
+  g7Timers.forEach(id => clearTimeout(id));
+  g7Timers = [];
+}
+
+// Limpia el estado visual del reto 7 (celdas y banderas) antes de mostrar nivel
+function g7LimpiarEstado(){
+  g7ClearTimers();
+  g7esperando = false;
+  g7input = [];
+  for(let i=0;i<G7_GRID*G7_GRID;i++){
+    const c=document.getElementById('g7C'+i);
+    if(c){
+      c.style.background='#1a0033';
+      c.style.boxShadow='';
+      c.style.animation='';
+      c.style.pointerEvents='none'; // bloqueado hasta terminar la demostración
+    }
+  }
+}
+
 function iniciarNivel7(){
-  if(g7nivel>=G7_NIVELES.length){
-    // ¡Ganó todos los niveles! → Video de victoria en pantalla completa
+  if(g7nivel >= G7_NIVELES.length){
+    // ¡Ganó los 5 niveles! → Video de victoria en pantalla completa
     showProtoDefeatVideo();
     return;
   }
+  // Limpiar todo antes de empezar nivel
+  g7LimpiarEstado();
+
   const nivel = G7_NIVELES[g7nivel];
-  g7input=[];
-  g7esperando=false;
 
   // Generar secuencia aleatoria sin repetir celdas
   const indices = Array.from({length:G7_GRID*G7_GRID},(_,i)=>i);
   g7secuencia = indices.sort(()=>Math.random()-.5).slice(0, nivel.elementos);
 
-  // Actualizar HUD y etiqueta
+  // Actualizar HUD
   const ne=document.getElementById('g7n');if(ne)ne.textContent=`${g7nivel+1}/5`;
   const se=document.getElementById('g7s');if(se){se.textContent='OBSERVA';se.style.color='#a040ff';}
   const et=document.getElementById('g7etiqueta');
-  if(et){et.textContent='OBSERVA EL PATRÓN';et.style.color='#a040ff';}
+  if(et){et.textContent='OBSERVA EL PATRÓN';et.style.color='#a040ff';et.style.textShadow='0 0 15px #a040ff';}
 
-  // Bloquear clicks durante la demostración
-  for(let i=0;i<G7_GRID*G7_GRID;i++){
-    const c=document.getElementById('g7C'+i);
-    if(c)c.style.pointerEvents='none';
-  }
-
-  // Mostrar la secuencia en el grid único
-  let acumulado=0;
-  g7secuencia.forEach((idx,i)=>{
-    st(()=>{
-      const cell=document.getElementById('g7C'+idx);
+  // Mostrar la secuencia (cada cuadro: encender + apagar después de tiempo_show)
+  let acumulado = 500; // pequeña pausa inicial
+  g7secuencia.forEach((idx, i) => {
+    // Encender
+    g7st(() => {
+      const cell = document.getElementById('g7C'+idx);
       if(cell){
         cell.style.background='#a040ff';
         cell.style.boxShadow='0 0 25px #a040ff,inset 0 0 15px #fff';
-        cell.style.animation='g7cellGlow .3s ease-out';
       }
       playFx('memory');
     }, acumulado);
-    st(()=>{
-      const cell=document.getElementById('g7C'+idx);
+    // Apagar
+    g7st(() => {
+      const cell = document.getElementById('g7C'+idx);
       if(cell){
         cell.style.background='#1a0033';
         cell.style.boxShadow='';
-        cell.style.animation='';
       }
     }, acumulado + nivel.tiempo_show);
-    acumulado += nivel.tiempo_show + 200;
+    acumulado += nivel.tiempo_show + 250;
   });
 
-  // Después de mostrar todo: habilitar input del jugador
-  st(()=>{
-    g7esperando=true;
+  // Después de la demostración: habilitar input del jugador (SIN timer)
+  g7st(() => {
+    g7esperando = true;
     const se=document.getElementById('g7s');if(se){se.textContent='REPLICA';se.style.color='#40ffaa';}
     const et=document.getElementById('g7etiqueta');
     if(et){et.textContent='REPITE LA SECUENCIA';et.style.color='#40ffaa';et.style.textShadow='0 0 15px #40ffaa';}
-    // Habilitar clicks
+    // Habilitar clicks en todas las celdas
     for(let i=0;i<G7_GRID*G7_GRID;i++){
       const c=document.getElementById('g7C'+i);
-      if(c)c.style.pointerEvents='';
+      if(c) c.style.pointerEvents='';
     }
-    iniciarTimerReplicar(nivel.tiempo_replicar);
   }, acumulado + 300);
 }
 
-function iniciarTimerReplicar(duracion){
-  const prog=document.getElementById('g7prog');
-  let restante=duracion;
-  const inicio=Date.now();
-  const tick=()=>{
-    const transcurrido=Date.now()-inicio;
-    const pct=Math.max(0, 100 - (transcurrido/duracion)*100);
-    if(prog)prog.style.width=pct+'%';
-    if(transcurrido>=duracion){
-      // Tiempo agotado
-      g7esperando=false;
-      g7fallar('⏱ TIEMPO AGOTADO');
-      return;
-    }
-    g7timerReplicar = requestAnimationFrame(tick);
-  };
-  tick();
-}
-
 function g7tap(idx){
-  if(!g7esperando)return;
-  // El jugador debe presionar EXACTAMENTE el mismo índice que se mostró
+  if(!g7esperando) return;
   const posicionEnSecuencia = g7input.length;
   const idxEsperado = g7secuencia[posicionEnSecuencia];
-
-  const cell=document.getElementById('g7C'+idx);
+  const cell = document.getElementById('g7C'+idx);
 
   if(idx === idxEsperado){
     // Correcto
@@ -2024,19 +2023,11 @@ function g7tap(idx){
 
     if(g7input.length === g7secuencia.length){
       // ¡Nivel completo!
-      g7esperando=false;
-      if(g7timerReplicar)cancelAnimationFrame(g7timerReplicar);
-      const prog=document.getElementById('g7prog');if(prog)prog.style.width='0%';
+      g7esperando = false;
       const se=document.getElementById('g7s');if(se){se.textContent='✓ NIVEL COMPLETO';se.style.color='#40ffaa';}
       g7nivel++;
-      // Limpiar celdas pintadas tras 1.5s y empezar siguiente nivel
-      st(()=>{
-        for(let i=0;i<G7_GRID*G7_GRID;i++){
-          const c=document.getElementById('g7C'+i);
-          if(c){c.style.background='#1a0033';c.style.boxShadow='';}
-        }
-        iniciarNivel7();
-      }, 1500);
+      // Avanzar al siguiente nivel después de 1.5s
+      g7st(() => iniciarNivel7(), 1500);
     }
   } else {
     // Incorrecto
@@ -2044,8 +2035,7 @@ function g7tap(idx){
       cell.style.background='#ff3030';
       cell.style.boxShadow='0 0 25px #ff3030';
     }
-    g7esperando=false;
-    if(g7timerReplicar)cancelAnimationFrame(g7timerReplicar);
+    g7esperando = false;
     g7fallar('✗ POSICIÓN INCORRECTA');
   }
 }
@@ -2056,92 +2046,81 @@ function g7fallar(motivo){
   const ve=document.getElementById('g7v');
   if(ve){
     const corazones = Array.from({length:5},(_,i)=>i<g7vidas?'❤':'🖤').join('');
-    ve.textContent=corazones;
+    ve.textContent = corazones;
   }
   const se=document.getElementById('g7s');if(se){se.textContent=motivo;se.style.color='#ff3030';}
 
   // Aproximar al Prototipo (más cerca cada fallo)
-  const proto=document.getElementById('g7-proto');
+  const proto = document.getElementById('g7-proto');
   if(proto){
-    const acercamiento = 0.6 + (5-g7vidas)*0.3; // de 0.6 a 1.8
-    const opacidad = 0.25 + (5-g7vidas)*0.15;   // de 0.25 a 0.85
+    const acercamiento = 0.6 + (5-g7vidas)*0.3;
+    const opacidad     = 0.25 + (5-g7vidas)*0.15;
     proto.style.transform=`translate(-50%,-50%) scale(${acercamiento})`;
-    proto.style.opacity=opacidad;
+    proto.style.opacity = opacidad;
   }
 
-  if(g7vidas<=0){
+  if(g7vidas <= 0){
     // El Prototipo te absorbe
     if(proto){
-      proto.style.transition='all 1.5s cubic-bezier(.5,0,.7,1)';
-      proto.style.transform='translate(-50%,-50%) scale(4)';
-      proto.style.opacity='1';
+      proto.style.transition = 'all 1.5s cubic-bezier(.5,0,.7,1)';
+      proto.style.transform  = 'translate(-50%,-50%) scale(4)';
+      proto.style.opacity    = '1';
     }
-    st(()=>showLose('El Prototipo te absorbió en su sello.'),1700);
+    g7st(() => showLose('El Prototipo te absorbió en su sello.'), 1700);
   } else {
-    // Reintentar mismo nivel
-    st(()=>{
-      // Limpiar grid
-      for(let i=0;i<G7_GRID*G7_GRID;i++){
-        const c=document.getElementById('g7C'+i);
-        if(c){c.style.background='#1a0033';c.style.boxShadow='';}
-      }
-      iniciarNivel7();
-    }, 1800);
+    // Reintentar el MISMO nivel: g7nivel NO se incrementa
+    // iniciarNivel7 generará una NUEVA secuencia aleatoria del mismo tamaño
+    g7st(() => iniciarNivel7(), 1800);
   }
 }
 
 // ===== IDs DE VIDEOS DE YOUTUBE (REEMPLAZA CON LOS TUYOS) =====
 // Sube los videos a YouTube como "no listados" y pega aquí solo el ID
 // Ejemplo: si la URL es https://youtu.be/abc123XYZ → el ID es "abc123XYZ"
-const PROTO_VIDEO_AWAKE   = 'YRovkmCCZV4';  // Video del Prototipo DESPERTANDO (reemplazar)
-const PROTO_VIDEO_DEFEAT  = 'YRovkmCCZV4';  // Video del Prototipo SIENDO DERROTADO (reemplazar)
+// IDs de YouTube de los videos del Prototipo
+const PROTO_VIDEO_AWAKE   = 'ezKOWtHCmlk';  // Video del Prototipo DESPERTANDO (anidado en pantalla intermedia)
+const PROTO_VIDEO_DEFEAT  = '5vilg5XWiow';  // Video del Prototipo DERROTADO (pantalla completa al ganar)
+const SPRINGTRAP_VIDEO    = 'YRovkmCCZV4';  // Video final de SpringTrap (al completar reto 6)
 
-// ===== TRANSICIÓN ENTRE RETO 6 Y RETO 7 =====
-// PASO 1: Pantalla de aviso "ALGO HA DESPERTADO" + botón ENFRENTARLO
+// ===== PASO 2 del flujo final: Pantalla "ALGO HA DESPERTADO" con VIDEO ANIDADO =====
 function showProtoTransition(){
   const w=document.getElementById('g-wrap');
+  // Detener video de SpringTrap si seguía sonando
+  w.querySelectorAll('#springtrap-end-vid').forEach(e=>{
+    const ifr=e.querySelector('iframe');
+    if(ifr)ifr.src='';
+    e.remove();
+  });
   w.querySelectorAll('#g6f').forEach(e=>e.remove());
 
   const trans=document.createElement('div');
   trans.id='proto-trans';
-  trans.style.cssText='position:absolute;inset:0;background:radial-gradient(ellipse at center,#1a0033 0%,#000 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:300;gap:2rem;padding:2rem;';
+  trans.style.cssText='position:absolute;inset:0;background:radial-gradient(ellipse at center,#1a0033 0%,#000 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:300;gap:1.5rem;padding:2rem;';
   trans.innerHTML=`
-    <div style="font-family:var(--fhud);font-size:2rem;color:#a040ff;letter-spacing:8px;text-shadow:0 0 30px #a040ff;animation:blink 1s infinite;">⚠ ALGO HA DESPERTADO ⚠</div>
-    <img src="${PROTO_IMG}" style="width:300px;height:300px;object-fit:contain;filter:drop-shadow(0 0 40px #a040ff);animation:charPulse 2s ease-in-out infinite;" onerror="this.style.display='none'">
-    <div style="font-family:var(--fmono);font-size:1.1rem;color:#fff;text-align:center;max-width:800px;line-height:1.6;">
-      Spring Trap ha caído... pero con su sello roto, el <span style="color:#a040ff;font-weight:bold;font-size:1.3rem">PROTOTIPO</span> ha despertado.<br>
-      <span style="color:#888;font-size:.9rem">Es el ser más antiguo de Playtime Co. y solo tú puedes detenerlo.</span>
+    <div style="font-family:var(--fhud);font-size:1.8rem;color:#a040ff;letter-spacing:8px;text-shadow:0 0 30px #a040ff;animation:blink 1s infinite;">⚠ ALGO HA DESPERTADO ⚠</div>
+    <div style="width:80%;max-width:900px;aspect-ratio:16/9;border:2px solid #a040ff;border-radius:8px;overflow:hidden;box-shadow:0 0 50px rgba(160,64,255,.6);background:#1a0033;">
+      <iframe id="proto-awake-iframe" src="https://www.youtube-nocookie.com/embed/${PROTO_VIDEO_AWAKE}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1" style="width:100%;height:100%;border:none;" allow="autoplay; fullscreen"></iframe>
     </div>
-    <button onclick="showProtoAwakeVideo()" style="margin-top:1rem;font-family:var(--fhud);font-size:1.4rem;color:#fff;background:linear-gradient(135deg,#4a0080,#a040ff);border:2px solid #fff;border-radius:8px;padding:1.2rem 3.5rem;cursor:pointer;letter-spacing:5px;box-shadow:0 0 40px rgba(160,64,255,.9);animation:blink 1.5s infinite;">⚡ ENFRENTARLO ⚡</button>
+    <div style="font-family:var(--fmono);font-size:1rem;color:#fff;text-align:center;max-width:800px;line-height:1.6;">
+      Spring Trap ha caído... pero con su sello roto, el <span style="color:#a040ff;font-weight:bold;font-size:1.2rem">PROTOTIPO</span> ha despertado.<br>
+      <span style="color:#888;font-size:.85rem">Es el ser más antiguo de Playtime Co. y solo tú puedes detenerlo.</span>
+    </div>
+    <button onclick="iniciarReto7()" style="margin-top:.5rem;font-family:var(--fhud);font-size:1.3rem;color:#fff;background:linear-gradient(135deg,#4a0080,#a040ff);border:2px solid #fff;border-radius:8px;padding:1rem 3rem;cursor:pointer;letter-spacing:5px;box-shadow:0 0 40px rgba(160,64,255,.9);animation:blink 1.5s infinite;">⚡ ENFRENTARLO ⚡</button>
   `;
   w.appendChild(trans);
-}
-
-// PASO 2: VIDEO DEL PROTOTIPO DESPERTANDO en PANTALLA COMPLETA
-function showProtoAwakeVideo(){
-  const w=document.getElementById('g-wrap');
-  w.querySelectorAll('#proto-trans').forEach(e=>e.remove());
-
-  const vid=document.createElement('div');
-  vid.id='proto-vid-full';
-  vid.style.cssText='position:absolute;inset:0;background:#000;display:flex;flex-direction:column;z-index:400;';
-  vid.innerHTML=`
-    <div style="flex:1;position:relative;">
-      <iframe id="proto-awake-iframe" src="https://www.youtube-nocookie.com/embed/${PROTO_VIDEO_AWAKE}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1" style="position:absolute;inset:0;width:100%;height:100%;border:none;" allow="autoplay; fullscreen"></iframe>
-    </div>
-    <div style="background:#000;padding:1.5rem;display:flex;justify-content:center;">
-      <button onclick="iniciarReto7()" style="font-family:var(--fhud);font-size:1.3rem;color:#fff;background:linear-gradient(135deg,#a040ff,#ff40aa);border:2px solid #fff;border-radius:8px;padding:1rem 3rem;cursor:pointer;letter-spacing:4px;box-shadow:0 0 30px rgba(160,64,255,.9);">▶ INICIAR EL RETO</button>
-    </div>
-  `;
-  w.appendChild(vid);
 }
 
 // PASO 3: Iniciar el Reto 7
 function iniciarReto7(){
   const w=document.getElementById('g-wrap');
-  // Quitar la pantalla del video
+  // Quitar la pantalla intermedia (donde estaba el video anidado)
+  w.querySelectorAll('#proto-trans').forEach(e=>{
+    const ifr=e.querySelector('iframe');
+    if(ifr)ifr.src='';
+    e.remove();
+  });
+  // También quitar pantalla de video completo si existiera (legacy)
   w.querySelectorAll('#proto-vid-full').forEach(e=>{
-    // Detener el video primero
     const ifr=e.querySelector('iframe');
     if(ifr)ifr.src='';
     e.remove();
@@ -2180,8 +2159,31 @@ function showFinalVictory(){
 }
 
 function showFinalEnding(){
-  // CAMBIO: ahora va al Reto 7 secreto en lugar de mostrar el ending directo
-  showProtoTransition();
+  // PASO 1 del flujo final: video de SpringTrap en pantalla completa
+  showSpringTrapEndVideo();
+}
+
+// PASO 1: Video final del Reto 6 (SpringTrap) en pantalla completa
+function showSpringTrapEndVideo(){
+  const w=document.getElementById('g-wrap');
+  // Limpiar pantalla del Reto 6
+  w.querySelectorAll('#g6f').forEach(e=>e.remove());
+
+  const vid=document.createElement('div');
+  vid.id='springtrap-end-vid';
+  vid.style.cssText='position:absolute;inset:0;background:#000;display:flex;flex-direction:column;z-index:400;';
+  vid.innerHTML=`
+    <div style="background:#000;padding:1rem;text-align:center;">
+      <div style="font-family:var(--fhud);font-size:1.4rem;color:#c0392b;letter-spacing:6px;text-shadow:0 0 20px #c0392b;">⚡ SPRING TRAP HA SIDO SELLADO ⚡</div>
+    </div>
+    <div style="flex:1;position:relative;">
+      <iframe id="st-end-iframe" src="https://www.youtube-nocookie.com/embed/${SPRINGTRAP_VIDEO}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1" style="position:absolute;inset:0;width:100%;height:100%;border:none;" allow="autoplay; fullscreen"></iframe>
+    </div>
+    <div style="background:#000;padding:1.5rem;display:flex;justify-content:center;">
+      <button onclick="showProtoTransition()" style="font-family:var(--fhud);font-size:1.3rem;color:#fff;background:linear-gradient(135deg,#4a0080,#a040ff);border:2px solid #fff;border-radius:8px;padding:1rem 3rem;cursor:pointer;letter-spacing:4px;box-shadow:0 0 30px rgba(160,64,255,.9);">▶ CONTINUAR</button>
+    </div>
+  `;
+  w.appendChild(vid);
 }
 
 function resetGame(){ stopBgAudio();
