@@ -514,6 +514,10 @@ let bgAudio = null;
 let activeFx = [];
 // Lista de timers de fade/stop pendientes para poder cancelarlos
 let activeFxTimers = [];
+// Una única instancia activa por NOMBRE de efecto (anti-mezcla)
+const activeFxByName = {};
+// Tope duro de duración para CUALQUIER efecto de acción (segundos)
+const FX_HARD_CAP_SEC = 2.0;
 
 function playBgAudio(cap){
   stopBgAudio();
@@ -546,12 +550,25 @@ function stopAllFx(){
   activeFx = [];
   activeFxTimers.forEach(t=>{ try{clearTimeout(t);}catch(e){} });
   activeFxTimers = [];
+  for(const k in activeFxByName) delete activeFxByName[k];
 }
 
-// Efectos puntuales con DURACIÓN MÁXIMA forzada
-// Si el archivo MP3 dura más, se corta automáticamente al llegar al límite
+// Detiene la instancia previa de un efecto con el mismo nombre (evita "mezcla")
+function stopFxByName(name){
+  const prev = activeFxByName[name];
+  if(!prev) return;
+  try{ prev.audio.pause(); prev.audio.currentTime = 0; }catch(e){}
+  try{ clearTimeout(prev.timer); }catch(e){}
+  const i = activeFx.indexOf(prev.audio);
+  if(i>=0) activeFx.splice(i,1);
+  delete activeFxByName[name];
+}
+
+// Efectos puntuales con DURACIÓN MÁXIMA forzada (tope duro = FX_HARD_CAP_SEC)
+// Aunque el MP3 subido dure 40 s, se corta antes para no opacar la música de fondo.
+// Sólo UNA instancia por nombre puede sonar a la vez (evita la "mezcla" al hacer clics rápidos).
 function playFx(name){
-  // Mapeo de efecto → {archivo, duración máxima en segundos, volumen}
+  // Mapeo de efecto → {archivo, duración máxima preferida en segundos, volumen}
   const fxMap = {
     'hit':     {src:'audio/fx-hit.mp3',     maxDur:0.6, vol:0.7},
     'cut':     {src:'audio/fx-cut.mp3',     maxDur:0.5, vol:0.7},
@@ -562,6 +579,10 @@ function playFx(name){
   };
   const cfg = fxMap[name];
   if(!cfg) return;
+  // Tope duro: ningún sonido de acción puede pasar de FX_HARD_CAP_SEC segundos
+  const dur = Math.min(cfg.maxDur, FX_HARD_CAP_SEC);
+  // Matar instancia previa del mismo nombre (anti-mezcla)
+  stopFxByName(name);
   try {
     const a = new Audio(cfg.src);
     a.volume = cfg.vol;
@@ -582,15 +603,18 @@ function playFx(name){
             // Sacar del array de activos
             const idx = activeFx.indexOf(a);
             if(idx>=0) activeFx.splice(idx,1);
+            if(activeFxByName[name] && activeFxByName[name].audio===a) delete activeFxByName[name];
           }
         }, 20);
       } catch(e){}
-    }, cfg.maxDur * 1000);
+    }, dur * 1000);
     activeFxTimers.push(t);
+    activeFxByName[name] = {audio:a, timer:t};
     // También sacar del array cuando termine naturalmente
     a.addEventListener('ended', ()=>{
       const idx = activeFx.indexOf(a);
       if(idx>=0) activeFx.splice(idx,1);
+      if(activeFxByName[name] && activeFxByName[name].audio===a) delete activeFxByName[name];
     });
   } catch(e){}
 }
@@ -878,6 +902,8 @@ function onVidDone(){
 
 // ===== GAMES =====
 function openGame(id){
+  // Al entrar a CUALQUIER reto desde el mapa, salimos del modo "último reto"
+  S.inGame7=false;
   S.curGame=id;S.lives=3;
   const z=id===5?ZF:Z[id];
   document.getElementById('gb-name').textContent=z.name.toUpperCase();
@@ -918,7 +944,19 @@ function startGame(){
 }
 function retryGame(){
   document.getElementById('g-lose').style.display='none';
-  S.lives=3;updLives();buildCanvas(S.curGame);startGame();
+  S.lives=3;updLives();
+  // Si el jugador falló el ÚLTIMO reto (Reto 7 - Prototipo), reintentar SOLO el reto 7,
+  // NO volver al reto 6 anterior aunque estén ligados narrativamente.
+  if(S.inGame7){
+    const w=document.getElementById('g-wrap');
+    // Limpiar restos del reto 7 anterior
+    w.querySelectorAll('#g7f').forEach(e=>e.remove());
+    if(typeof g7ClearTimers==='function') g7ClearTimers();
+    bG7(w);
+    st(()=>sG7(),300);
+    return;
+  }
+  buildCanvas(S.curGame);startGame();
 }
 function updLives(){
   const a=['💀💀💀','❤️💀💀','❤️❤️💀','❤️❤️❤️'];
@@ -2125,6 +2163,9 @@ function iniciarReto7(){
     if(ifr)ifr.src='';
     e.remove();
   });
+  // Marcar que estamos en el ÚLTIMO reto: si el jugador falla, retryGame
+  // debe reintentar SOLO el Reto 7, sin reabrir el Reto 6.
+  S.inGame7 = true;
   // Crear el reto 7
   bG7(w);
   st(()=>sG7(),300);
@@ -2132,6 +2173,8 @@ function iniciarReto7(){
 
 // PASO 4 (victoria): VIDEO DEL PROTOTIPO DERROTADO en PANTALLA COMPLETA
 function showProtoDefeatVideo(){
+  // Ya superado el último reto: liberar el flag para que el flujo normal vuelva a aplicar
+  S.inGame7 = false;
   const w=document.getElementById('g-wrap');
   w.querySelectorAll('#g7f').forEach(e=>e.remove());
 
@@ -2187,7 +2230,7 @@ function showSpringTrapEndVideo(){
 }
 
 function resetGame(){ stopBgAudio();
-  S.completed=[];S.unlocked=[0];S.lives=3;S.phase=0;
+  S.completed=[];S.unlocked=[0];S.lives=3;S.phase=0;S.inGame7=false;
   localStorage.clear();
   location.reload();
 }
