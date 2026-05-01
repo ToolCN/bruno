@@ -1231,7 +1231,10 @@ const STAR_POSITIONS=[
 ];
 // Estado de paredes dinámicas (las marcadas con 2): cada una está visible o no
 let g3dynWalls={};
-let g3p={x:1,y:1},g3e={x:19,y:1},g3fast=false,g3star={x:19,y:19};
+let g3p={x:1,y:1},g3e={x:11,y:11},g3fast=false,g3star={x:19,y:19};
+// Modo fácil del Reto 3: tras 1 fracaso, vuelve a la versión "vieja"
+// (CatNap en la esquina, estrella siempre cada 6 s).
+let g3EasyMode=false;
 
 // Función auxiliar: ¿la celda es transitable AHORA?
 function celdaLibre(x,y){
@@ -1243,8 +1246,15 @@ function celdaLibre(x,y){
 }
 
 function bG3(c){
-  g3p={x:1,y:1};g3e={x:19,y:1};g3fast=false;
-  g3star={x:19,y:19};
+  // Modo fácil: tras al menos 1 fracaso del Reto 3, volvemos a la versión más amable
+  // (CatNap en la esquina, estrella sin acelerar). El modo difícil (default) coloca
+  // a CatNap en el CENTRO del laberinto para que pueda moverse libremente.
+  const fails = (S.fails && S.fails.g2) || 0;
+  g3EasyMode = fails >= 1;
+  g3p={x:1,y:1};
+  g3e = g3EasyMode ? {x:19,y:1} : {x:11,y:11};
+  g3star = {x:19,y:19};
+  g3fast=false;
   g3dynWalls={};
   // Campo fullscreen
   const f=document.createElement('div');f.id='g3f';
@@ -1373,7 +1383,9 @@ function sG3(){
   }
   st(moverEnemigo,900);
 
-  // *** NUEVO: La estrella se mueve cada 8 segundos ***
+  // La estrella cambia de lugar para mantener al jugador en movimiento.
+  // En modo DIFÍCIL + gas rojo activo: cambia muy rápido (1.2 s) para despistar.
+  // En modo NORMAL o EASY: cada 6 s (comportamiento clásico).
   function moverEstrella(){
     if(!document.getElementById('g3f'))return;
     // Elegir nueva posición distinta a la actual y diferente del jugador
@@ -1386,9 +1398,11 @@ function sG3(){
       const oy=parseInt(f.dataset.oy||20);
       const s=document.getElementById('g3star');
       if(s){s.style.left=ox+g3star.x*CS+'px';s.style.top=oy+g3star.y*CS+'px';}
-      toast('⭐ ¡La estrella se movió!');
+      // El toast a 1.2 s sería spam: solo avisamos cuando se mueve "lento"
+      if(g3EasyMode || !g3fast) toast('⭐ ¡La estrella se movió!');
     }
-    st(moverEstrella, 6000);
+    const proximoMs = (g3fast && !g3EasyMode) ? 1200 : 6000;
+    st(moverEstrella, proximoMs);
   }
   st(moverEstrella, 6000);
 
