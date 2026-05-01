@@ -429,7 +429,7 @@ function st(f,ms){const id=setTimeout(f,ms);TT.push(id);return id;}
 function clrT(){TT.forEach(id=>{clearInterval(id);clearTimeout(id);});TT=[];}
 
 // ===== STATE =====
-const S={unlocked:[0],completed:[],curZone:0,vidCtx:'',curGame:0,lives:3};
+const S={unlocked:[0],completed:[],curZone:0,vidCtx:'',curGame:0,lives:3,fails:{}};
 
 // ===== ZONES =====
 const Z=[
@@ -518,6 +518,21 @@ let activeFxTimers = [];
 const activeFxByName = {};
 // Tope duro de duración para CUALQUIER efecto de acción (segundos)
 const FX_HARD_CAP_SEC = 2.0;
+// EXCEPCIÓN: el sonido del gas rojo (Reto 3 - CatNap) suena en loop
+// mientras el gas esté activo, NO se le aplica el cap de 2 s.
+let gasLoopAudio = null;
+function startGasLoop(){
+  stopGasLoop();
+  try{
+    gasLoopAudio = new Audio('audio/fx-gas.mp3');
+    gasLoopAudio.loop = true;
+    gasLoopAudio.volume = 0.55;
+    gasLoopAudio.play().catch(()=>{ /* archivo no existe o autoplay bloqueado */ });
+  }catch(e){}
+}
+function stopGasLoop(){
+  if(gasLoopAudio){ try{gasLoopAudio.pause();}catch(e){} gasLoopAudio=null; }
+}
 
 function playBgAudio(cap){
   stopBgAudio();
@@ -542,6 +557,8 @@ function stopBgAudio(){
   if(bgAudio){ try{bgAudio.pause();}catch(e){} bgAudio=null; }
   // Cortar todos los efectos que estén sonando ahora mismo
   stopAllFx();
+  // Y el sonido especial del gas (loop del Reto 3)
+  stopGasLoop();
 }
 
 // Corta inmediatamente todos los efectos activos
@@ -963,9 +980,20 @@ function updLives(){
   document.getElementById('gb-lives').textContent=a[Math.max(0,S.lives)];
 }
 function loseLife(msg){S.lives--;updLives();if(S.lives<=0){stopBgAudio();showLose(msg);}else toast(`❤️ ${S.lives} vidas`);}
-function showLose(msg){ stopBgAudio();clrT();if(typeof g7ClearTimers==='function')g7ClearTimers();document.getElementById('gl-txt').textContent=msg||'¡Inténtalo!';document.getElementById('g-lose').style.display='flex';}
+function showLose(msg){
+  stopBgAudio();clrT();
+  if(typeof g7ClearTimers==='function')g7ClearTimers();
+  // Contador de fracasos por reto: usado para suavizar la dificultad tras varios intentos
+  const k = S.inGame7 ? 'g7' : ('g'+S.curGame);
+  S.fails[k] = (S.fails[k]||0) + 1;
+  document.getElementById('gl-txt').textContent=msg||'¡Inténtalo!';
+  document.getElementById('g-lose').style.display='flex';
+}
 function showWin(){ stopBgAudio();
   clrT();
+  // Reiniciar contador de fracasos del reto superado
+  const k = S.inGame7 ? 'g7' : ('g'+S.curGame);
+  S.fails[k] = 0;
   const z=S.curGame===5?ZF:Z[S.curGame];
   localStorage.setItem('gd'+S.curGame,'1');
   document.getElementById('gw-code').textContent=z.gc;
@@ -1036,11 +1064,18 @@ function moveHuggy(){
   b.style.top=Math.floor(Math.random()*(fh-bh))+'px';
   b.onclick=()=>{g1s++;playFx('hit');const el=document.getElementById('g1s');if(el)el.textContent=g1s+'/10';toast('👊 +1');if(g1s>=10){clrT();stopBgAudio();showWin();return;}moveHuggy();};
   f.appendChild(b);
-  // *** CAMBIO PRINCIPAL: velocidad progresiva ***
-  // Toque 0: 2200ms (igual que antes)
-  // Toque 9: 600ms (3.6x más rápido)
-  // Interpolación lineal: tiempo = 2200 - (g1s * 178)
-  const tiempo = Math.max(600, 2200 - (g1s * 178));
+  // Velocidad progresiva, con MODO FÁCIL tras 3 fracasos:
+  // - Normal: 2200 ms (toque 0) → 600 ms (toque 9)
+  // - Fácil (≥3 fracasos): casi sin acelerar — Huggy se queda lento todo el reto
+  //   para que el jugador pueda superarlo y avanzar al siguiente.
+  const fails = (S.fails && S.fails.g0) || 0;
+  let tiempo;
+  if(fails >= 3){
+    // Tiempo casi constante alrededor de las primeras imágenes (lentas)
+    tiempo = Math.max(1700, 2200 - (g1s * 50));
+  } else {
+    tiempo = Math.max(600, 2200 - (g1s * 178));
+  }
   st(()=>{if(b.parentNode){b.remove();moveHuggy();}}, tiempo);
 }
 
@@ -1162,36 +1197,41 @@ function cutWire2(el,ok){
 function cutWire(el,ok){cutWire2(el,ok);}
 
 // ===== GAME 3: CATNAP - Laberinto fullscreen =====
-// *** CAMBIO: Laberinto 17x17 (antes 13x13) ***
+// *** Laberinto 21x21 (más grande y con más paredes dinámicas) ***
 // 0 = camino, 1 = pared, 2 = pared dinámica (puede aparecer/desaparecer)
 const MZ=[
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-  [1,0,0,0,0,2,0,0,0,0,0,2,0,0,0,0,1],
-  [1,0,1,1,0,1,1,1,2,1,0,1,1,1,1,0,1],
-  [1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
-  [1,0,1,0,1,1,2,1,1,1,1,1,2,0,1,0,1],
-  [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
-  [1,1,2,0,1,0,1,0,2,0,1,0,1,0,2,1,1],
-  [1,0,0,0,1,0,1,0,1,0,1,0,1,0,0,0,1],
-  [1,0,1,1,1,0,1,0,0,0,1,0,1,1,1,0,1],
-  [1,0,1,0,0,0,1,0,1,0,1,0,0,0,1,0,1],
-  [1,0,1,0,1,1,1,2,1,1,1,1,1,0,1,0,1],
-  [1,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,1],
-  [1,0,1,1,2,0,1,0,1,1,2,0,1,0,1,0,1],
-  [1,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,1],
-  [1,0,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
-  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,2,0,0,0,0,0,0,2,0,0,0,0,0,0,0,1],
+  [1,0,1,1,0,1,1,0,1,1,1,0,1,1,0,1,1,1,1,0,1],
+  [1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,1],
+  [1,1,1,0,1,2,1,1,1,0,1,1,1,1,1,1,1,0,1,0,1],
+  [1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1],
+  [1,0,1,1,1,0,1,0,1,2,1,1,1,1,1,0,1,1,1,1,1],
+  [1,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,1],
+  [1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,2,1,0,1],
+  [1,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,1,0,0,0,1],
+  [1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1,1,1],
+  [1,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+  [1,0,1,1,1,2,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
+  [1,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,0,0,1,0,1],
+  [1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1],
+  [1,0,0,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,0,0,1],
+  [1,1,1,0,1,0,1,1,1,0,1,1,1,2,1,0,1,1,1,0,1],
+  [1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,1],
+  [1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
 ];
-const MZ_SZ=17;
-// Posiciones donde puede aparecer la estrella (lugares "abiertos")
+const MZ_SZ=21;
+// Posiciones donde puede aparecer la estrella (lugares "abiertos") — ampliadas
 const STAR_POSITIONS=[
-  {x:15,y:15},{x:1,y:15},{x:15,y:1},{x:8,y:8},
-  {x:5,y:13},{x:13,y:5},{x:1,y:11},{x:11,y:1},
+  {x:19,y:19},{x:1,y:19},{x:19,y:1},
+  {x:10,y:5},{x:5,y:15},{x:15,y:9},
+  {x:9,y:11},{x:13,y:17},
 ];
 // Estado de paredes dinámicas (las marcadas con 2): cada una está visible o no
 let g3dynWalls={};
-let g3p={x:1,y:1},g3e={x:15,y:1},g3fast=false,g3star={x:15,y:15};
+let g3p={x:1,y:1},g3e={x:19,y:1},g3fast=false,g3star={x:19,y:19};
 
 // Función auxiliar: ¿la celda es transitable AHORA?
 function celdaLibre(x,y){
@@ -1203,8 +1243,8 @@ function celdaLibre(x,y){
 }
 
 function bG3(c){
-  g3p={x:1,y:1};g3e={x:15,y:1};g3fast=false;
-  g3star={x:15,y:15};
+  g3p={x:1,y:1};g3e={x:19,y:1};g3fast=false;
+  g3star={x:19,y:19};
   g3dynWalls={};
   // Campo fullscreen
   const f=document.createElement('div');f.id='g3f';
@@ -1297,11 +1337,13 @@ function sG3(){
     const en=document.getElementById('g3en');
     if(f.humo){
       if(smoke)smoke.style.opacity='1';
-      playFx('gas');
+      // Sonido del gas en LOOP durante toda la fase de gas (excepción al cap de 2 s)
+      startGasLoop();
       if(modeEl)modeEl.innerHTML='<div class="hud-lbl">Modo</div><div class="hud-val" style="color:#c0392b;font-size:.8rem;animation:blink .5s infinite">⚠ GAS ROJO</div>';
       if(en){const img=en.querySelector('img');if(img)img.src=CN_IMG_GAS;}
     }else{
       if(smoke)smoke.style.opacity='0';
+      stopGasLoop();
       if(modeEl)modeEl.innerHTML='<div class="hud-lbl">Modo</div><div class="hud-val" style="color:#8e44ad;font-size:.8rem">NORMAL</div>';
       if(en){const img=en.querySelector('img');if(img)img.src=CN_IMG_NORMAL;}
     }
